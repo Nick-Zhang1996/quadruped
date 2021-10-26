@@ -11,68 +11,10 @@ from math import radians,degrees,cos,sin
 # NOTE: to make display with pygame simpler unit here used is scaled
 # distance: cm, g: cm/s^2, force: N/100
 
-collision_types = {'ground':0, 'body':1, 'obstacle':2}
+from common import *
+from Quadruped import *
 
-class Link:
-    # create a link, attached to parent_body at it's a or b point (start/finish), also add a joint at connection. Start(a) of this link is the connecting point
-    def __init__(self, length=None, angle=None, mass=None, moment=None, parent_link=None, joint_at_start=True):
-        self.length = length
-        self.shape = None
-        self.body = None
-        self.thickness = 4
-        self.joint = None
-        if (parent_link is None):
-            # return empty class
-            return
-        else:
-            if (joint_at_start):
-                start_pos = parent_link.get_start_position() 
-            else:
-                start_pos = parent_link.get_end_position()
-
-
-        if (moment is None):
-            moment = pymunk.moment_for_box(mass, (self.thickness, self.length))
-
-        self.body = pymunk.Body(mass,moment)
-        x = start_pos[0] + length/2.0*cos(angle)
-        y = start_pos[1] + length/2.0*sin(angle)
-        self.body.position = (x,y)
-        self.body.angle = angle
-        self.shape = pymunk.Segment(self.body, ( -length/2,0), (length/2,0), self.thickness/2)
-        self.shape.collision_type = collision_types['body']
-        self.shape.friction = 1.0
-
-        # this is the joint connecting this link to the parent link
-        if (joint_at_start):
-            self.joint = pymunk.PivotJoint(parent_link.body, self.body, parent_link.shape.a, self.shape.a)
-        else:
-            self.joint = pymunk.PivotJoint(parent_link.body, self.body, parent_link.shape.b, self.shape.a)
-        #self.pivot_limit = pymunk.RotaryLimitJoint(parent_link.body, self.body, -radians(60), radians(60))
-
-    def add_to_space(self,space):
-        space.add(self.body, self.shape)
-        if (not self.joint is None):
-            space.add(self.joint)
-
-
-    def get_start_position(self):
-        pos = self.body.position
-        angle = self.body.angle
-        x = pos[0] - self.length/2.0*cos(angle)
-        y = pos[1] - self.length/2.0*sin(angle)
-        return (x,y)
-
-    def get_end_position(self):
-        pos = self.body.position
-        angle = self.body.angle
-        x = pos[0] + self.length/2.0*cos(angle)
-        y = pos[1] + self.length/2.0*sin(angle)
-        return (x,y)
-
-
-
-class Physics:
+class Sim:
     def __init__(self):
         self.width = 800
         self.height = 600
@@ -86,7 +28,7 @@ class Physics:
 
 
         self.space = pymunk.Space()
-        self.space.damping = 0.9
+        self.space.damping = 0.7
         self.space.gravity = (0.0, -9.8*100)
         self.setCollisionHandler()
         #self.space.gravity = (0.0, 0)
@@ -95,7 +37,7 @@ class Physics:
 
         # DEBUG
         #self.addBall()
-        self.addQuadruped()
+        Quadruped(self.space)
 
     def setCollisionHandler(self):
         def collide(x,y,z):
@@ -129,54 +71,25 @@ class Physics:
         #segment.collision_type = None
         self.space.add(segment)
 
-    def addQuadruped(self):
-        total_mass = 20
-        base_link = self.createBaseLink()
-
-        front_upper_link = Link(40,-radians(120), total_mass*0.1/4, None, base_link, False)
-        front_lower_link = Link(40,-radians(60), total_mass*0.1/4, None, front_upper_link, False)
-        rear_upper_link = Link(40,-radians(120), total_mass*0.1/4, None, base_link, True)
-        rear_lower_link = Link(40,-radians(60), total_mass*0.1/4, None, rear_upper_link, False)
-
-        self.links.append(front_upper_link)
-        self.links.append(front_lower_link)
-        self.links.append(rear_upper_link)
-        self.links.append(rear_lower_link)
-
-        for link in self.links:
-            link.add_to_space(self.space)
-
-    def createBaseLink(self):
-        total_mass = 20
-        base_length = 100
-        base_mass = 0.9*total_mass
-        #location, start, end
-
-        # create base
-        base_link_length = 100
-        base_link_thickness = 10
-        base_I = pymunk.moment_for_box(base_mass, (base_link_thickness, base_length))
-        base_body = pymunk.Body(base_mass, base_I)
-        #base_body = pymunk.Body(base_mass, base_I, body_type=pymunk.Body.STATIC)
-        base_body.position = (200,200)
-        base_body.angle = radians(0)
-        shape = pymunk.Segment(base_body, (-base_link_length/2,0), (base_link_length/2,0), base_link_thickness/2)
-        shape.collision_type = collision_types['body']
-        base_link = Link()
-        base_link.length = base_link_length
-        base_link.shape = shape
-        base_link.body = base_body
-        self.links.append(base_link)
-        return base_link
-
-
     def loop(self):
+        self.checkExit()
+        self.updateDisplay()
+        # limit framerate to 100
+        self.clock.tick(100)
+        # update control
+        self.updateControl()
+
+    def updateControl(self):
+        return
+
+    def checkExit(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit(0)
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 sys.exit(0)
 
+    def updateDisplay(self):
         screen = self.screen
         screen.fill((255,255,255))
         self.space.debug_draw(self.draw_options)
@@ -184,13 +97,12 @@ class Physics:
         screen.blit(pygame.transform.flip(screen,False,True), (0,0))
 
         self.space.step(1/100.0)
-
         pygame.display.flip()
-        # limit framerate to 100
-        self.clock.tick(100)
+
+        # update controller
 
 if __name__=="__main__":
-    main = Physics()
+    main = Sim()
     while True:
         main.loop()
 
