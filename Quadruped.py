@@ -136,3 +136,15 @@ class Quadruped:
         self.rear_lower_link.body.torque = torque
         self.rear_upper_link.body.torque = -torque
 
+    def front_foot_pos(self):
+        return self.front_lower_link.get_end_position()
+
+    def rear_foot_pos(self):
+        return self.rear_lower_link.get_end_position()
+
+    # cheating function, apply ground reaction force to base_link directly
+    def applyGroundReaction(self, u):
+        # u = [fx1 fy1 fx2 fy2] ground->robot
+        self.front_lower_link.body.apply_force_at_world_point( (u[0],u[1]), self.front_foot_pos())
+        self.rear_lower_link.body.apply_force_at_world_point( (u[2],u[3]), self.rear_foot_pos())
+

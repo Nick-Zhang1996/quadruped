@@ -13,6 +13,7 @@ from math import radians,degrees,cos,sin
 
 from common import *
 from Quadruped import *
+from Controller import *
 
 class Sim:
     def __init__(self):
@@ -37,6 +38,7 @@ class Sim:
         # DEBUG
         self.ball = self.addBall()
         self.quadruped = Quadruped(self.space, (100,170))
+        self.quadruped.controller = Controller(self.quadruped)
 
     def setCollisionHandler(self):
         def collide(x,y,z):
@@ -81,6 +83,9 @@ class Sim:
 
     def updateControl(self):
         quadruped = self.quadruped
+        controller = quadruped.controller
+        u = controller.stand()
+        quadruped.applyGroundReaction(u)
         return
 
     def addDummyForce(self):
