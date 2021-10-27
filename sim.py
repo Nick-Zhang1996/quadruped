@@ -39,6 +39,7 @@ class Sim:
         self.ball = self.addBall()
         self.quadruped = Quadruped(self.space, (100,170))
         self.quadruped.controller = Controller(self.quadruped)
+        self.quadruped.controller.screen = self.screen
 
     def setCollisionHandler(self):
         def collide(x,y,z):
@@ -71,15 +72,6 @@ class Sim:
         segment.friction = 0.9
         #segment.collision_type = None
         self.space.add(segment)
-
-    def loop(self):
-        self.checkExit()
-        self.updateDisplay()
-        # limit framerate to 100
-        self.clock.tick(100)
-        # update control
-        self.updateControl()
-        self.addDummyForce()
 
     def updateControl(self):
         quadruped = self.quadruped
@@ -119,17 +111,25 @@ class Sim:
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 sys.exit(0)
 
-    def updateDisplay(self):
+    def loop(self):
+        self.checkExit()
+
         screen = self.screen
         screen.fill((255,255,255))
         self.space.debug_draw(self.draw_options)
-        #screen.blit(pygame.transform.rotate(screen,180), (0,0))
-        screen.blit(pygame.transform.flip(screen,False,True), (0,0))
 
-        self.space.step(1/100.0)
+        # update control
+        self.updateControl()
+        #self.addDummyForce()
+
+
+        screen.blit(pygame.transform.flip(screen,False,True), (0,0))
         pygame.display.flip()
 
-        # update controller
+        self.space.step(1/100.0)
+        # limit framerate to 100
+        self.clock.tick(100)
+
 
 if __name__=="__main__":
     main = Sim()
