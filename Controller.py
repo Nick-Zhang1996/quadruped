@@ -2,6 +2,8 @@ import pygame
 import gurobipy as gp
 from gurobipy import GRB
 import numpy as np
+from collections import namedtuple
+from recordclass import recordclass
 
 class Controller:
     def __init__(self,quadruped):
@@ -93,6 +95,19 @@ class Controller:
         for i in range(N-1):
             model.addConstr( x[n*(i+1):n*(i+2)] == G @ x[n*i:n*(i+1)] + H @ u[m*(i+1):m*(i+2)] + F )
 
+        # constraint on ground reaction (friction limit)
+        mu = self.sim.ground_friction
+        for i in range(N):
+            # fx < mu*fy
+            model.addConstr( u[m*i + 0] <= mu * u[m*i + 1])
+            # fy > 0
+            model.addConstr( u[m*i + 1] >= 0 )
+            # fx < mu*fy
+            model.addConstr( u[m*i + 2] <= mu * u[m*i + 3])
+            # fy > 0
+            model.addConstr( u[m*i + 3] >= 0 )
+
+
         # broadcast x_ref to fill horizon
         xr = np.repeat(x_ref_world.reshape(1,-1),N,axis=0).flatten()
         #obj = xr @ Q @ xr + x @ Q @ x - 2* xr @ Q @ x + u @ R @ u
@@ -140,9 +155,45 @@ class Controller:
         '''
 
         # return ground reaction
+        print("ground reaction")
         print(u.x[:4])
-        return u.x 
+        return u.x[:4]
 
+    # given desired ground reaction force at foot (Fx,Fy)
+    # calculate and joint torques
+    # Fground: force at foot, ground -> foot
+    def calcJointTorque(self, Fground):
+        quadruped = self.quadruped
+        # torque = - (pos_joint - pos_foot) X Fground
+        
+        def getCrossMatrix(vector):
+            x = vector[0]
+            y = vector[1]
+            z = 0
+            return np.array([[0, -z, y], [z, 0, -x], [-y, x, 0]])
+        Joint = recordclass('Joint', 'pos torque')
+        Foot = namedtuple('Foot', 'pos Fground')
+
+        front_foot = Foot(quadruped.front_foot_pos_np(), np.array([Fground[0],Fground[1],0]))
+        rear_foot = Foot(quadruped.rear_foot_pos_np(), np.array([Fground[2], Fground[3],0]))
+        foots = [front_foot, rear_foot]
+
+        front_knee_joint = Joint(quadruped.front_knee_pos_np(), 0)
+        front_shoulder_joint = Joint(quadruped.front_shoulder_pos_np(), 0)
+        rear_knee_joint = Joint(quadruped.rear_knee_pos_np(), 0)
+        rear_shoulder_joint = Joint(quadruped.rear_shoulder_pos_np(), 0)
+        joints = [front_knee_joint, front_shoulder_joint, rear_knee_joint, rear_shoulder_joint]
+
+        for joint in joints:
+            G = np.array([0, -quadruped.base_link.body.mass*self.g, 0])
+            joint.torque += -getCrossMatrix(quadruped.base_link.body.position - joint.pos) @ G
+            for foot in foots:
+                joint.torque += -getCrossMatrix(foot.pos - joint.pos) @ foot.Fground
+
+        joint_torques =  [joint.torque for joint in joints]
+        print("joint torque")
+        print([joint_torques[0][2], joint_torques[1][2], joint_torques[2][2], joint_torques[3][2]])
+        return joint_torques
 
 
 

@@ -7,6 +7,7 @@ import pymunk.pygame_util
 import random
 random.seed(1)
 from math import radians,degrees,cos,sin
+import numpy as np
 
 class Link:
     # create a link, attached to parent_body at it's a or b point (start/finish), also add a joint at connection. Start(a) of this link is the connecting point
@@ -120,33 +121,62 @@ class Quadruped:
         self.links.append(base_link)
         return base_link
 
-    def front_upper_motor(self, torque):
+    def front_shoulder_motor(self, torque):
         self.front_upper_link.body.torque = torque
         self.base_link.body.torque = -torque
 
-    def front_lower_motor(self, torque):
+    def front_knee_motor(self, torque):
         self.front_lower_link.body.torque = torque
         self.front_upper_link.body.torque = -torque
 
-    def rear_upper_motor(self, torque):
+    def rear_shoulder_motor(self, torque):
         self.rear_upper_link.body.torque = torque
         self.base_link.body.torque = -torque
 
-    def rear_lower_motor(self, torque):
+    def rear_knee_motor(self, torque):
         self.rear_lower_link.body.torque = torque
         self.rear_upper_link.body.torque = -torque
 
+    def front_shoulder_pos_np(self):
+        return np.array(self.front_upper_link.get_start_position())
+    def front_knee_pos_np(self):
+        return np.array(self.front_upper_link.get_end_position())
+    def front_foot_pos_np(self):
+        return np.array(self.front_lower_link.get_end_position())
+    def rear_shoulder_pos_np(self):
+        return np.array(self.rear_upper_link.get_start_position())
+    def rear_knee_pos_np(self):
+        return np.array(self.rear_upper_link.get_end_position())
+    def rear_foot_pos_np(self):
+        return np.array(self.rear_lower_link.get_end_position())
+
+    def front_shoulder_pos(self):
+        return self.front_upper_link.get_start_position()
+    def front_knee_pos(self):
+        return self.front_upper_link.get_end_position()
     def front_foot_pos(self):
         return self.front_lower_link.get_end_position()
-
+    def rear_shoulder_pos(self):
+        return self.rear_upper_link.get_start_position()
+    def rear_knee_pos(self):
+        return self.rear_upper_link.get_end_position()
     def rear_foot_pos(self):
         return self.rear_lower_link.get_end_position()
 
+
     # cheating function, apply ground reaction force to base_link directly
-    def applyGroundReaction(self, u):
+    def applyGroundReactionCheat(self, u):
         # u = [fx1 fy1 fx2 fy2] ground->robot
         self.base_link.body.apply_force_at_world_point( (u[0],u[1]), self.front_foot_pos())
         self.base_link.body.apply_force_at_world_point( (u[2],u[3]), self.rear_foot_pos())
         #self.base_link.body.apply_force_at_world_point( (u[0],u[1]), (50,100))
         #self.base_link.body.apply_force_at_world_point( (u[2],u[3]), (150,100))
 
+    def applyGroundReaction(self, u):
+        joint_torque = self.controller.calcJointTorque(u)
+        self.front_knee_motor( joint_torque[0][2])
+        self.front_shoulder_motor( joint_torque[1][2])
+        self.rear_knee_motor( joint_torque[2][2])
+        self.rear_shoulder_motor( joint_torque[3][2])
+
+        pass

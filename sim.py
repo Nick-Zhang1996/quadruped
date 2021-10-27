@@ -40,6 +40,7 @@ class Sim:
         self.quadruped = Quadruped(self.space, (100,170))
         self.quadruped.controller = Controller(self.quadruped)
         self.quadruped.controller.screen = self.screen
+        self.quadruped.controller.sim = self
 
     def setCollisionHandler(self):
         def collide(x,y,z):
@@ -69,7 +70,8 @@ class Sim:
         # (x,y) origin at upper left, x+ right y+down
         self.ground_height = ground_height = 100
         segment = pymunk.Segment(self.space.static_body, (0, ground_height), (self.width,ground_height), radius)
-        segment.friction = 0.9
+        self.ground_friction = 0.9
+        segment.friction = self.ground_friction
         #segment.collision_type = None
         self.space.add(segment)
 
@@ -78,6 +80,7 @@ class Sim:
         controller = quadruped.controller
         u = controller.stand()
         quadruped.applyGroundReaction(u)
+        #quadruped.applyGroundReactionCheat(u)
         return
 
     def addDummyForce(self):
@@ -89,9 +92,11 @@ class Sim:
         #quadruped.front_lower_link.body.torque = 20000
 
 
+        '''
         ball = self.ball
         force = ball.mass * self.g
         ball.apply_force_at_world_point((0,force), ball.position)
+        '''
 
 
         M = quadruped.mass
@@ -100,8 +105,8 @@ class Sim:
         cos60 = cos(radians(60))
         torque = 0.95/2*M*g*l*cos60 + 0.025*M*g*l*cos60
         torque = torque * 1.1
-        self.quadruped.front_lower_motor(-torque)
-        self.quadruped.rear_lower_motor(-torque)
+        self.quadruped.front_knee_motor(-torque)
+        self.quadruped.rear_knee_motor(-torque)
         return
 
     def checkExit(self):
@@ -121,7 +126,6 @@ class Sim:
         # update control
         self.updateControl()
         #self.addDummyForce()
-
 
         screen.blit(pygame.transform.flip(screen,False,True), (0,0))
         pygame.display.flip()
