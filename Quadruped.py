@@ -145,6 +145,8 @@ class Quadruped:
     # cheating function, apply ground reaction force to base_link directly
     def applyGroundReaction(self, u):
         # u = [fx1 fy1 fx2 fy2] ground->robot
-        self.front_lower_link.body.apply_force_at_world_point( (u[0],u[1]), self.front_foot_pos())
-        self.rear_lower_link.body.apply_force_at_world_point( (u[2],u[3]), self.rear_foot_pos())
+        self.base_link.body.apply_force_at_world_point( (u[0],u[1]), self.front_foot_pos())
+        self.base_link.body.apply_force_at_world_point( (u[2],u[3]), self.rear_foot_pos())
+        #self.base_link.body.apply_force_at_world_point( (u[0],u[1]), (50,100))
+        #self.base_link.body.apply_force_at_world_point( (u[2],u[3]), (150,100))
 

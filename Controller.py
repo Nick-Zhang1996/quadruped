@@ -71,14 +71,15 @@ class Controller:
         Q = np.eye(n)
         # x = [pitch, x, y, omega, vx, vy ]
         Q[0,0] *= 50
-        R = np.eye(m)*1e-8
+        #R = np.eye(m)*1e-8
+        R = np.zeros((m,m))
 
         bigQ = np.kron(np.eye(N),Q)
         bigR = np.kron(np.eye(N),R)
 
         model = gp.Model("stand")
         # supress output
-        #model.setParam(GRB.Param.OutputFlag, 0)
+        model.setParam(GRB.Param.OutputFlag, 0)
         # [x1,x2,...xN]
         x = model.addMVar(shape=n*N, lb=-10000, ub=10000, name='x')
         # [u0, .... u(N-1)]
@@ -123,6 +124,7 @@ class Controller:
             x_predict.append(x_new)
             pygame.draw.circle(self.screen, (0,0,0), x_new[1:3], 2)
         x_predict = np.array(x_predict)
+        '''
         print("x0 pos error")
         print(p_ref_world - x0[1:3])
         print("x0 norm error")
@@ -135,8 +137,10 @@ class Controller:
         print(J)
         print("u control")
         print(u.x)
+        '''
 
         # return ground reaction
+        print(u.x[:4])
         return u.x 
 
 

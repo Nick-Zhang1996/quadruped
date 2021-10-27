@@ -36,7 +36,7 @@ class Sim:
         self.addGround()
 
         # DEBUG
-        self.ball = self.addBall()
+        #self.ball = self.addBall()
         self.quadruped = Quadruped(self.space, (100,170))
         self.quadruped.controller = Controller(self.quadruped)
         self.quadruped.controller.screen = self.screen
