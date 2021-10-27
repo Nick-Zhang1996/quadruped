@@ -15,6 +15,7 @@ class Link:
         self.shape = None
         self.body = None
         self.thickness = 4
+        self.mass = None
         self.joint = None
         if (parent_link is None):
             # return empty class
@@ -29,6 +30,7 @@ class Link:
         if (moment is None):
             moment = pymunk.moment_for_box(mass, (self.thickness, self.length))
 
+        self.mass = mass
         self.body = pymunk.Body(mass,moment)
         x = start_pos[0] + length/2.0*cos(angle)
         y = start_pos[1] + length/2.0*sin(angle)
@@ -70,7 +72,8 @@ class Link:
 
 
 class Quadruped:
-    def __init__(self, space):
+    def __init__(self, space, position):
+        self.base_position = position
         self.mass = 20
         self.space = space
         self.links = []
@@ -104,9 +107,9 @@ class Quadruped:
         base_link_length = 100
         base_link_thickness = 10
         base_I = pymunk.moment_for_box(base_mass, (base_link_thickness, base_length))
-        #base_body = pymunk.Body(base_mass, base_I)
-        base_body = pymunk.Body(base_mass, base_I, body_type=pymunk.Body.STATIC)
-        base_body.position = (200,200)
+        base_body = pymunk.Body(base_mass, base_I)
+        #base_body = pymunk.Body(base_mass, base_I, body_type=pymunk.Body.STATIC)
+        base_body.position = self.base_position
         base_body.angle = radians(0)
         shape = pymunk.Segment(base_body, (-base_link_length/2,0), (base_link_length/2,0), base_link_thickness/2)
         shape.collision_type = collision_types['body']
@@ -116,3 +119,20 @@ class Quadruped:
         base_link.body = base_body
         self.links.append(base_link)
         return base_link
+
+    def front_upper_motor(self, torque):
+        self.front_upper_link.body.torque = torque
+        self.base_link.body.torque = -torque
+
+    def front_lower_motor(self, torque):
+        self.front_lower_link.body.torque = torque
+        self.front_upper_link.body.torque = -torque
+
+    def rear_upper_motor(self, torque):
+        self.rear_upper_link.body.torque = torque
+        self.base_link.body.torque = -torque
+
+    def rear_lower_motor(self, torque):
+        self.rear_lower_link.body.torque = torque
+        self.rear_upper_link.body.torque = -torque
+

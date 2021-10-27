@@ -26,18 +26,17 @@ class Sim:
         self.clock = pygame.time.Clock()
         self.draw_options = pymunk.pygame_util.DrawOptions(self.screen)
 
-
         self.space = pymunk.Space()
-        self.space.damping = 0.7
-        self.space.gravity = (0.0, -9.8*100)
+        self.space.damping = 0.1
+        self.g = 9.8*100
+        self.space.gravity = (0.0, -self.g)
         self.setCollisionHandler()
         #self.space.gravity = (0.0, 0)
         self.addGround()
-        self.links = []
 
         # DEBUG
-        #self.addBall()
-        Quadruped(self.space)
+        self.ball = self.addBall()
+        self.quadruped = Quadruped(self.space, (100,170))
 
     def setCollisionHandler(self):
         def collide(x,y,z):
@@ -60,7 +59,7 @@ class Sim:
         shape.friction = 1
         shape.collision_type = collision_types['obstacle']
         self.space.add(body, shape)
-        return shape
+        return body
 
     def addGround(self):
         radius = 5
@@ -78,8 +77,34 @@ class Sim:
         self.clock.tick(100)
         # update control
         self.updateControl()
+        self.addDummyForce()
 
     def updateControl(self):
+        quadruped = self.quadruped
+        return
+
+    def addDummyForce(self):
+        quadruped = self.quadruped
+        #link = quadruped.front_lower_link
+        #force = link.mass*self.g/2
+        #quadruped.front_lower_link.body.apply_force_at_local_point((0,force), quadruped.front_lower_link.shape.b)
+        #quadruped.front_lower_link.body.apply_force_at_world_point((0,force), quadruped.front_lower_link.get_end_position())
+        #quadruped.front_lower_link.body.torque = 20000
+
+
+        ball = self.ball
+        force = ball.mass * self.g
+        ball.apply_force_at_world_point((0,force), ball.position)
+
+
+        M = quadruped.mass
+        g = self.g
+        l = quadruped.front_lower_link.length
+        cos60 = cos(radians(60))
+        torque = 0.95/2*M*g*l*cos60 + 0.025*M*g*l*cos60
+        torque = torque * 1.1
+        self.quadruped.front_lower_motor(-torque)
+        self.quadruped.rear_lower_motor(-torque)
         return
 
     def checkExit(self):
