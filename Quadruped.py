@@ -8,6 +8,7 @@ import random
 random.seed(1)
 from math import radians,degrees,cos,sin
 import numpy as np
+from Controller import *
 
 class Link:
     # create a link, attached to parent_body at it's a or b point (start/finish), also add a joint at connection. Start(a) of this link is the connecting point
@@ -26,7 +27,6 @@ class Link:
                 start_pos = parent_link.get_start_position() 
             else:
                 start_pos = parent_link.get_end_position()
-
 
         if (moment is None):
             moment = pymunk.moment_for_box(mass, (self.thickness, self.length))
@@ -73,12 +73,20 @@ class Link:
 
 
 class Quadruped:
-    def __init__(self, space, position):
+    def __init__(self, sim,  position):
         self.base_position = position
         self.mass = 20
-        self.space = space
+        self.sim = sim
+        self.space = sim.space
         self.links = []
         self.addLinks()
+
+        # controller related
+        self.controller_freq = 500
+        self.joint_torque = np.zeros((4,3))
+        # unit: sim time
+        self.last_controller_update = 0
+        self.controller = Controller(self)
 
     def addLinks(self):
         total_mass = self.mass
@@ -179,4 +187,16 @@ class Quadruped:
         self.rear_knee_motor( joint_torque[2][2])
         self.rear_shoulder_motor( joint_torque[3][2])
 
-        pass
+    def applyJointTorque(self, joint_torque):
+        self.front_knee_motor( joint_torque[0][2])
+        self.front_shoulder_motor( joint_torque[1][2])
+        self.rear_knee_motor( joint_torque[2][2])
+        self.rear_shoulder_motor( joint_torque[3][2])
+
+    def controllerStep(self):
+        if (self.sim.sim_steps * self.sim.sim_dt - self.last_controller_update > 1.0/self.controller_freq):
+            ground_reaction_force = self.controller.mpc_stand()
+            self.joint_torque = self.controller.calcJointTorque(ground_reaction_force)
+            self.last_controller_update = self.sim.sim_steps * self.sim.sim_dt
+            self.sim.controller_steps += 1
+        self.applyJointTorque(self.joint_torque)

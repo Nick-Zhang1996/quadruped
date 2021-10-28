@@ -7,22 +7,31 @@ import pymunk.pygame_util
 import random
 random.seed(1)
 from math import radians,degrees,cos,sin
+from time import time
 
 # NOTE: to make display with pygame simpler unit here used is scaled
 # distance: cm, g: cm/s^2, force: N/100
 
 from common import *
 from Quadruped import *
-from Controller import *
 
 class Sim:
     def __init__(self):
         self.width = 800
         self.height = 600
-        self.dt = 0.01
+        self.sim_dt = 1.0/500
+        self.display_freq = 50
+        self.real_to_sim_speedup = 1
+        self.last_display_update = time()
+
+        self.display_steps = 0
+        self.controller_steps = 0
+
+        self.sim_steps = 0
 
         pygame.init()
         self.screen = pygame.display.set_mode((self.width, self.height))
+        self.screen.fill((255,255,255))
         pygame.display.set_caption("Quadruped Simulation")
         self.clock = pygame.time.Clock()
         self.draw_options = pymunk.pygame_util.DrawOptions(self.screen)
@@ -34,13 +43,18 @@ class Sim:
         self.setCollisionHandler()
         #self.space.gravity = (0.0, 0)
         self.addGround()
+        self.mytext = ""
+
+
+        #self.font = pygame.freetype.Font("./font/data-unifon.ttf",24)
+        self.font = pygame.freetype.SysFont(None,24)
+        #text_surface, rect = font.render("Hello World 123", (0,0,0))
+        #screen.blit(text_surface, (100,100))
 
         # DEBUG
         #self.ball = self.addBall()
-        self.quadruped = Quadruped(self.space, (100,170))
-        self.quadruped.controller = Controller(self.quadruped)
-        self.quadruped.controller.screen = self.screen
-        self.quadruped.controller.sim = self
+        self.quadruped = Quadruped(self, (100,170))
+
 
     def setCollisionHandler(self):
         def collide(x,y,z):
@@ -76,11 +90,7 @@ class Sim:
         self.space.add(segment)
 
     def updateControl(self):
-        quadruped = self.quadruped
-        controller = quadruped.controller
-        u = controller.stand()
-        quadruped.applyGroundReaction(u)
-        #quadruped.applyGroundReactionCheat(u)
+        #self.quadruped.controllerStep()
         return
 
     def addDummyForce(self):
@@ -116,23 +126,36 @@ class Sim:
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 sys.exit(0)
 
+    def updateDisplay(self):
+        screen = self.screen
+        self.space.debug_draw(self.draw_options)
+        screen.blit(pygame.transform.flip(screen,False,True), (0,0))
+        self.font.render_to(self.screen, (10,10), self.mytext, (0,0,0))
+        pygame.display.flip()
+        # do this for next frame, so that drawing between calls to this fun won't be overwritten
+        screen.fill((255,255,255))
+
+    def showText(self, text):
+        self.mytext = text
+
     def loop(self):
         self.checkExit()
 
-        screen = self.screen
-        screen.fill((255,255,255))
-        self.space.debug_draw(self.draw_options)
-
-        # update control
+        # update control (include drawing)
         self.updateControl()
         #self.addDummyForce()
 
-        screen.blit(pygame.transform.flip(screen,False,True), (0,0))
-        pygame.display.flip()
+        # update simulation
+        self.space.step(self.sim_dt)
+        self.sim_steps += 1
+        if (time() - self.last_display_update > 1.0/self.display_freq):
+            self.last_display_update = time()
 
-        self.space.step(1/100.0)
-        # limit framerate to 100
-        self.clock.tick(100)
+            #self.showText("sim time = %.3f"%(self.sim_steps*self.sim_dt))
+            self.showText("sim: %d, control: %d, display %d" %(self.sim_steps, self.controller_steps, self.display_steps))
+            self.updateDisplay()
+            self.display_steps += 1
+
 
 
 if __name__=="__main__":

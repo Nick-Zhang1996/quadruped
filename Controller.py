@@ -8,14 +8,16 @@ from recordclass import recordclass
 class Controller:
     def __init__(self,quadruped):
         self.quadruped = quadruped
+        self.sim = quadruped.sim
         self.g = 9.81*100
+        # discretization step for MPC
         self.dt = 0.01
         # horizon
         self.N = 20
         return
 
     # centroidal dynamics, mpc
-    def stand(self):
+    def mpc_stand(self):
         quadruped = self.quadruped
         # reference position of robot, world frame
         # P_ref_world(t) = (x,y)
@@ -137,7 +139,7 @@ class Controller:
             x_new = G @ x_predict[-1] + H @ ctrl + F
             J += (x_new - x_ref_world).T @ Q @ (x_new - x_ref_world) + ctrl.T @ R @ ctrl
             x_predict.append(x_new)
-            pygame.draw.circle(self.screen, (0,0,0), x_new[1:3], 2)
+            #pygame.draw.circle(self.screen, (0,0,0), x_new[1:3], 2)
         x_predict = np.array(x_predict)
         '''
         print("x0 pos error")
@@ -176,7 +178,6 @@ class Controller:
 
         front_foot = Foot(quadruped.front_foot_pos_np(), np.array([Fground[0],Fground[1],0]))
         rear_foot = Foot(quadruped.rear_foot_pos_np(), np.array([Fground[2], Fground[3],0]))
-        foots = [front_foot, rear_foot]
 
         front_knee_joint = Joint(quadruped.front_knee_pos_np(), 0)
         front_shoulder_joint = Joint(quadruped.front_shoulder_pos_np(), 0)
@@ -184,11 +185,11 @@ class Controller:
         rear_shoulder_joint = Joint(quadruped.rear_shoulder_pos_np(), 0)
         joints = [front_knee_joint, front_shoulder_joint, rear_knee_joint, rear_shoulder_joint]
 
-        for joint in joints:
-            G = np.array([0, -quadruped.base_link.body.mass*self.g, 0])
-            joint.torque += -getCrossMatrix(quadruped.base_link.body.position - joint.pos) @ G
-            for foot in foots:
-                joint.torque += -getCrossMatrix(foot.pos - joint.pos) @ foot.Fground
+        front_knee_joint.torque = -getCrossMatrix(front_foot.pos - front_knee_joint.pos) @ front_foot.Fground
+        front_shoulder_joint.torque = -getCrossMatrix(front_foot.pos - front_shoulder_joint.pos) @ front_foot.Fground
+        rear_knee_joint.torque = -getCrossMatrix(rear_foot.pos - rear_knee_joint.pos) @ rear_foot.Fground
+        rear_shoulder_joint.torque = -getCrossMatrix(rear_foot.pos - rear_shoulder_joint.pos) @ rear_foot.Fground
+
 
         joint_torques =  [joint.torque for joint in joints]
         print("joint torque")
