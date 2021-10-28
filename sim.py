@@ -3,6 +3,7 @@ import sys
 import pygame
 import pymunk
 import pymunk.pygame_util
+from Joystick import *
 
 import random
 random.seed(1)
@@ -15,7 +16,7 @@ from time import time
 from common import *
 from Quadruped import *
 
-class Sim:
+class Sim(PrintObject):
     def __init__(self):
         self.width = 800
         self.height = 600
@@ -30,18 +31,22 @@ class Sim:
         self.sim_steps = 0
 
         pygame.init()
+        self.clock = pygame.time.Clock()
+        self.joystick = Joystick()
+
+        # screen setting
         self.screen = pygame.display.set_mode((self.width, self.height))
         self.screen.fill((255,255,255))
         pygame.display.set_caption("Quadruped Simulation")
-        self.clock = pygame.time.Clock()
         self.draw_options = pymunk.pygame_util.DrawOptions(self.screen)
 
+        # space setting
         self.space = pymunk.Space()
         self.space.damping = 0.1
         self.g = 9.8*100
         self.space.gravity = (0.0, -self.g)
+
         self.setCollisionHandler()
-        #self.space.gravity = (0.0, 0)
         self.addGround()
         self.mytext = ""
 
@@ -90,7 +95,7 @@ class Sim:
         self.space.add(segment)
 
     def updateControl(self):
-        #self.quadruped.controllerStep()
+        self.quadruped.controllerStep()
         return
 
     def addDummyForce(self):
@@ -125,6 +130,7 @@ class Sim:
                 sys.exit(0)
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 sys.exit(0)
+            self.joystick.checkJoystickEvent(event)
 
     def updateDisplay(self):
         screen = self.screen
@@ -155,8 +161,6 @@ class Sim:
             self.showText("sim: %d, control: %d, display %d" %(self.sim_steps, self.controller_steps, self.display_steps))
             self.updateDisplay()
             self.display_steps += 1
-
-
 
 if __name__=="__main__":
     main = Sim()

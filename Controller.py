@@ -1,3 +1,4 @@
+from common import *
 import pygame
 import gurobipy as gp
 from gurobipy import GRB
@@ -5,7 +6,7 @@ import numpy as np
 from collections import namedtuple
 from recordclass import recordclass
 
-class Controller:
+class Controller(PrintObject):
     def __init__(self,quadruped):
         self.quadruped = quadruped
         self.sim = quadruped.sim
@@ -17,12 +18,14 @@ class Controller:
         return
 
     # centroidal dynamics, mpc
-    def mpc_stand(self):
+    # dp: position offset from ref (100,170)
+    # pitch: target pitch in rad
+    def mpc_stand(self,dp=(0,0), pitch=0):
         quadruped = self.quadruped
         # reference position of robot, world frame
         # P_ref_world(t) = (x,y)
         # constant when standing
-        p_ref_world = np.array([100,170])
+        p_ref_world = np.array([100,170]) + np.array(dp)
         # state dimension
         n = 6
         # control dimension, legs*dim
@@ -39,7 +42,8 @@ class Controller:
         r_world[1] = quadruped.rear_foot_pos()
 
         # check alignment
-        r_local = r_world - p_ref_world
+        p_world = np.array(self.quadruped.base_link.body.position)
+        r_local = r_world - p_world
 
         # x = [pitch, x, y, omega, vx, vy ]
         # p = [x,y]
@@ -68,7 +72,8 @@ class Controller:
         H = B*self.dt
         F = f*self.dt
 
-        x_ref_world = np.hstack([[0],p_ref_world,[0,0,0]])
+        # target state
+        x_ref_world = np.hstack([[pitch],p_ref_world,[0,0,0]])
 
         # formulate optimization problem
         # J = sum( (x_ref - x).T Q (x_ref-x) + u.T R u )
@@ -93,6 +98,11 @@ class Controller:
         body = quadruped.base_link.body
         x0 = [body.angle, body.position[0], body.position[1], body.angular_velocity, body.velocity[0], body.velocity[1]]
         x0 = np.array(x0)
+
+        # pitch, x,y
+        state_error = (x_ref_world - x0)[:3]
+        self.print_info("state_error" , state_error)
+
         model.addConstr( x[:n] == G @ x0 + H @ u[:m] + F )
         for i in range(N-1):
             model.addConstr( x[n*(i+1):n*(i+2)] == G @ x[n*i:n*(i+1)] + H @ u[m*(i+1):m*(i+2)] + F )
@@ -157,8 +167,8 @@ class Controller:
         '''
 
         # return ground reaction
-        print("ground reaction")
-        print(u.x[:4])
+        #print("ground reaction")
+        #print(u.x[:4])
         return u.x[:4]
 
     # given desired ground reaction force at foot (Fx,Fy)
@@ -192,8 +202,8 @@ class Controller:
 
 
         joint_torques =  [joint.torque for joint in joints]
-        print("joint torque")
-        print([joint_torques[0][2], joint_torques[1][2], joint_torques[2][2], joint_torques[3][2]])
+        #print("joint torque")
+        #print([joint_torques[0][2], joint_torques[1][2], joint_torques[2][2], joint_torques[3][2]])
         return joint_torques
 
 

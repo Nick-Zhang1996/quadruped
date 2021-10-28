@@ -10,7 +10,7 @@ from math import radians,degrees,cos,sin
 import numpy as np
 from Controller import *
 
-class Link:
+class Link(PrintObject):
     # create a link, attached to parent_body at it's a or b point (start/finish), also add a joint at connection. Start(a) of this link is the connecting point
     def __init__(self, length=None, angle=None, mass=None, moment=None, parent_link=None, joint_at_start=True):
         self.length = length
@@ -72,7 +72,7 @@ class Link:
         return (x,y)
 
 
-class Quadruped:
+class Quadruped(PrintObject):
     def __init__(self, sim,  position):
         self.base_position = position
         self.mass = 20
@@ -195,7 +195,11 @@ class Quadruped:
 
     def controllerStep(self):
         if (self.sim.sim_steps * self.sim.sim_dt - self.last_controller_update > 1.0/self.controller_freq):
-            ground_reaction_force = self.controller.mpc_stand()
+            js_vals = self.sim.joystick.vals
+            pitch = js_vals['RV']*radians(45)
+            dp = np.array([js_vals['LH'], js_vals['LV']])*10
+            self.print_info("target pitch: %.2f(deg), x:%.1f, y:%.1f"%(degrees(pitch), dp[0], dp[1]))
+            ground_reaction_force = self.controller.mpc_stand(dp,pitch)
             self.joint_torque = self.controller.calcJointTorque(ground_reaction_force)
             self.last_controller_update = self.sim.sim_steps * self.sim.sim_dt
             self.sim.controller_steps += 1
