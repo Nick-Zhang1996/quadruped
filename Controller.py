@@ -87,6 +87,8 @@ class Controller(PrintObject):
         Q[5,5] *= 0
         #R = np.eye(m)*1e-8
         R = np.zeros((m,m))
+        R[0,0] = 1e-3
+        R[2,2] = 1e-3
 
         bigQ = np.kron(np.eye(N),Q)
         bigR = np.kron(np.eye(N),R)
@@ -106,21 +108,23 @@ class Controller(PrintObject):
 
         # pitch, x,y
         state_error = (x_ref_world - x0)[:3]
-        self.print_info("state_error" , state_error)
+        #self.print_info("state_error" , state_error)
 
         model.addConstr( x[:n] == G @ x0 + H @ u[:m] + F )
         for i in range(N-1):
             model.addConstr( x[n*(i+1):n*(i+2)] == G @ x[n*i:n*(i+1)] + H @ u[m*(i+1):m*(i+2)] + F )
 
         # constraint on ground reaction (friction limit)
-        mu = self.sim.ground_friction
+        mu = self.sim.ground_friction*0.8
         for i in range(N):
-            # fx < mu*fy
+            # |fx| < mu*fy
             model.addConstr( u[m*i + 0] <= mu * u[m*i + 1])
+            model.addConstr( u[m*i + 0] >= -mu * u[m*i + 1])
             # fy > 0
             model.addConstr( u[m*i + 1] >= 0 )
-            # fx < mu*fy
+            # |fx| < mu*fy
             model.addConstr( u[m*i + 2] <= mu * u[m*i + 3])
+            model.addConstr( u[m*i + 2] >= -mu * u[m*i + 3])
             # fy > 0
             model.addConstr( u[m*i + 3] >= 0 )
 
@@ -172,8 +176,7 @@ class Controller(PrintObject):
         '''
 
         # return ground reaction
-        #print("ground reaction")
-        #print(u.x[:4])
+        self.print_info("Fground",u.x[:4])
         return u.x[:4]
 
     # given desired ground reaction force at foot (Fx,Fy)

@@ -200,7 +200,7 @@ class Quadruped(PrintObject):
             js_vals = self.sim.joystick.vals
             pitch = js_vals['RV']*radians(45)
             dp = np.array([js_vals['LH'], js_vals['LV']])*10
-            self.print_info("target pitch: %.2f(deg), x:%.1f, y:%.1f"%(degrees(pitch), dp[0], dp[1]))
+            #self.print_info("target pitch: %.2f(deg), x:%.1f, y:%.1f"%(degrees(pitch), dp[0], dp[1]))
             ground_reaction_force = self.controller.mpc_stand(dp,pitch)
             self.joint_torque = self.controller.calcJointTorque(ground_reaction_force)
             self.last_controller_update = self.sim.sim_steps * self.sim.sim_dt
