@@ -157,8 +157,8 @@ class Sim(PrintObject):
         if (time() - self.last_display_update > 1.0/self.display_freq):
             self.last_display_update = time()
 
-            #self.showText("sim time = %.3f"%(self.sim_steps*self.sim_dt))
-            self.showText("sim: %d, control: %d, display %d" %(self.sim_steps, self.controller_steps, self.display_steps))
+            self.showText("sim time = %.3f"%(self.sim_steps*self.sim_dt))
+            #self.showText("sim: %d, control: %d, display %d" %(self.sim_steps, self.controller_steps, self.display_steps))
             self.updateDisplay()
             self.display_steps += 1
 

@@ -82,6 +82,9 @@ class Controller(PrintObject):
         Q[0,0] *= 50
         Q[1,1] *= 50
         Q[2,2] *= 50
+        Q[3,3] *= 0
+        Q[4,4] *= 0
+        Q[5,5] *= 0
         #R = np.eye(m)*1e-8
         R = np.zeros((m,m))
 

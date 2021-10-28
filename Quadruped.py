@@ -82,7 +82,7 @@ class Quadruped(PrintObject):
         self.addLinks()
 
         # controller related
-        self.controller_freq = 500
+        self.controller_freq = 250
         self.joint_torque = np.zeros((4,3))
         self.ground_reaction_force = np.zeros(4)
         # unit: sim time
@@ -206,6 +206,6 @@ class Quadruped(PrintObject):
             self.last_controller_update = self.sim.sim_steps * self.sim.sim_dt
             self.sim.controller_steps += 1
             self.ground_reaction_force = ground_reaction_force
-        #self.applyJointTorque(self.joint_torque)
-        self.applyGroundReaction(self.ground_reaction_force)
+        self.applyJointTorque(self.joint_torque)
+        #self.applyGroundReaction(self.ground_reaction_force)
 
