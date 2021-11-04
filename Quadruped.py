@@ -177,10 +177,14 @@ class Quadruped(PrintObject):
     # cheating function, apply ground reaction force to base_link directly
     def applyGroundReactionCheat(self, u):
         # u = [fx1 fy1 fx2 fy2] ground->robot
-        self.base_link.body.apply_force_at_world_point( (u[0],u[1]), self.front_foot_pos())
-        self.base_link.body.apply_force_at_world_point( (u[2],u[3]), self.rear_foot_pos())
-        #self.base_link.body.apply_force_at_world_point( (u[0],u[1]), (50,100))
-        #self.base_link.body.apply_force_at_world_point( (u[2],u[3]), (150,100))
+        # apply force at actual foot location
+        #self.base_link.body.apply_force_at_world_point( (u[0],u[1]), self.front_foot_pos())
+        #self.base_link.body.apply_force_at_world_point( (u[2],u[3]), self.rear_foot_pos())
+        # apply force at fake foot position
+        # front
+        self.base_link.body.apply_force_at_world_point( (u[0],u[1]), (150,100))
+        # rear
+        self.base_link.body.apply_force_at_world_point( (u[2],u[3]), (50,100))
 
     def applyGroundReaction(self, u):
         joint_torque = self.controller.calcJointTorque(u)
@@ -199,7 +203,7 @@ class Quadruped(PrintObject):
         if (self.sim.sim_steps * self.sim.sim_dt - self.last_controller_update > 1.0/self.controller_freq):
             js_vals = self.sim.joystick.vals
             pitch = js_vals['RV']*radians(45)
-            dp = np.array([js_vals['LH'], js_vals['LV']])*10
+            dp = np.array([js_vals['LH'], -js_vals['LV']])*10
             #self.print_info("target pitch: %.2f(deg), x:%.1f, y:%.1f"%(degrees(pitch), dp[0], dp[1]))
             ground_reaction_force = self.controller.mpc_stand(dp,pitch)
             self.joint_torque = self.controller.calcJointTorque(ground_reaction_force)
@@ -207,5 +211,5 @@ class Quadruped(PrintObject):
             self.sim.controller_steps += 1
             self.ground_reaction_force = ground_reaction_force
         self.applyJointTorque(self.joint_torque)
-        #self.applyGroundReaction(self.ground_reaction_force)
+        #self.applyGroundReactionCheat(self.ground_reaction_force)
 

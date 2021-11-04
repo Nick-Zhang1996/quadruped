@@ -10,11 +10,11 @@ class Controller(PrintObject):
     def __init__(self,quadruped):
         self.quadruped = quadruped
         self.sim = quadruped.sim
-        self.g = 9.81*100
+        self.g = 9.8*100
         # discretization step for MPC
         self.dt = 0.01
         # horizon
-        self.N = 20
+        self.N = 10
         return
 
     # centroidal dynamics, mpc
@@ -25,7 +25,7 @@ class Controller(PrintObject):
         # reference position of robot, world frame
         # P_ref_world(t) = (x,y)
         # constant when standing
-        p_ref_world = np.array([100,170]) + np.array(dp)
+        p_ref_world = np.array([100,160]) + np.array(dp)
         # state dimension
         n = 6
         # control dimension, legs*dim
@@ -40,6 +40,9 @@ class Controller(PrintObject):
         r_world = np.zeros((leg_count, dim))
         r_world[0] = quadruped.front_foot_pos()
         r_world[1] = quadruped.rear_foot_pos()
+        # fake leg position
+        #r_world[0] = np.array((150,100))
+        #r_world[1] = np.array((50,100))
 
         # check alignment
         p_world = np.array(self.quadruped.base_link.body.position)
@@ -66,11 +69,11 @@ class Controller(PrintObject):
         B[4,:] = 1/mass * np.array([1,0,1,0])
         B[5,:] = 1/mass * np.array([0,1,0,1])
 
-        f = np.array([0,0,0,0,0,-self.g])
+        d = np.array([0,0,0,0,0,-self.g])
 
         G = np.eye(n) + A*self.dt
         H = B*self.dt
-        F = f*self.dt
+        F = d*self.dt
 
         # target state
         x_ref_world = np.hstack([[pitch],p_ref_world,[0,0,0]])
@@ -79,16 +82,20 @@ class Controller(PrintObject):
         # J = sum( (x_ref - x).T Q (x_ref-x) + u.T R u )
         Q = np.eye(n)
         # x = [pitch, x, y, omega, vx, vy ]
-        Q[0,0] *= 50
-        Q[1,1] *= 50
-        Q[2,2] *= 50
-        Q[3,3] *= 0
-        Q[4,4] *= 0
-        Q[5,5] *= 0
+        Q[0,0] *= 57
+        Q[1,1] *= 1
+        Q[2,2] *= 1
+        Q[3,3] *= 57*0.02
+        Q[4,4] *= 0.01
+        Q[5,5] *= 0.01
         #R = np.eye(m)*1e-8
         R = np.zeros((m,m))
-        R[0,0] = 1e-3
-        R[2,2] = 1e-3
+        '''
+        R[0,0] = 1e-6
+        R[2,2] = 1e-6
+        R[1,1] = 1e-6
+        R[3,3] = 1e-6
+        '''
 
         bigQ = np.kron(np.eye(N),Q)
         bigR = np.kron(np.eye(N),R)
@@ -106,8 +113,11 @@ class Controller(PrintObject):
         x0 = [body.angle, body.position[0], body.position[1], body.angular_velocity, body.velocity[0], body.velocity[1]]
         x0 = np.array(x0)
 
+        np.set_printoptions(precision=4)
+        #self.print_info("x0",x0)
+
         # pitch, x,y
-        state_error = (x_ref_world - x0)[:3]
+        #state_error = (x_ref_world - x0)[:3]
         #self.print_info("state_error" , state_error)
 
         model.addConstr( x[:n] == G @ x0 + H @ u[:m] + F )
@@ -115,7 +125,7 @@ class Controller(PrintObject):
             model.addConstr( x[n*(i+1):n*(i+2)] == G @ x[n*i:n*(i+1)] + H @ u[m*(i+1):m*(i+2)] + F )
 
         # constraint on ground reaction (friction limit)
-        mu = self.sim.ground_friction*0.8
+        mu = self.sim.ground_friction*0.4
         for i in range(N):
             # |fx| < mu*fy
             model.addConstr( u[m*i + 0] <= mu * u[m*i + 1])
@@ -150,7 +160,18 @@ class Controller(PrintObject):
             print(error)
         '''
 
+        # verify error shrinkage at end of horizon
+        '''
+        dx0 = x_ref_world - x0
+        step_cost_x0 = dx0 @ Q @ dx0
+        dxf = x_ref_world - np.array(x.x)[-6:]
+        step_cost_xf =  dxf @ Q @ dxf
+        self.print_info("error change ", step_cost_xf / step_cost_x0)
+        '''
+
+
         # draw anticipated trajectory
+        '''
         x_predict = [x0]
         J = 0
         for i in range(N):
@@ -160,23 +181,43 @@ class Controller(PrintObject):
             x_predict.append(x_new)
             #pygame.draw.circle(self.screen, (0,0,0), x_new[1:3], 2)
         x_predict = np.array(x_predict)
-        '''
-        print("x0 pos error")
-        print(p_ref_world - x0[1:3])
-        print("x0 norm error")
-        print(np.linalg.norm(x_ref_world - x0))
-        print("xf pos error")
-        print(p_ref_world - x_predict[-1,1:3])
-        print("xf norm error")
-        print(np.linalg.norm(x_ref_world - x_predict[-1]))
-        print("J")
-        print(J)
-        print("u control")
-        print(u.x)
+        self.print_info("expected trajectory \n", x_predict)
+        self.print_info("expected x_f", x_predict[-1])
+        self.print_info("expected J = %.2f"%(J))
         '''
 
+
+        # evaluate alternative control sequence
+        '''
+        x_predict = [x0]
+        J = 0
+        for i in range(N):
+            #ctrl = u.x[m*i:m*(i+1)]
+            ctrl = np.array([0,1e4, 0,1e4])
+            x_new = G @ x_predict[-1] + H @ ctrl + F
+            J += (x_new - x_ref_world).T @ Q @ (x_new - x_ref_world) + ctrl.T @ R @ ctrl
+            x_predict.append(x_new)
+            #pygame.draw.circle(self.screen, (0,0,0), x_new[1:3], 2)
+        x_predict = np.array(x_predict)
+        self.print_info("alternative trajectory \n",x_predict)
+        print("steady ctrl J = %.2f"%(J))
+        '''
+
+        # find total torque 
+        control = u.x[:4]
+        # x acceleration
+        x_acc = 1/mass * ( control[0] + control[2] )
+        y_acc = 1/mass * ( control[1] + control[3] )  - self.g
+        w = 1/moment * (x_acc*mass * (-r[0,1]) + control[1] * r[0,0] - control[3] * r[1,0])
+        #self.print_info("ax: %.2f, ay: %.2f, a: %.2f"%(x_acc, y_acc, w))
+        #self.print_info("control: ", u.x[:4])
+
         # return ground reaction
-        self.print_info("Fground",u.x[:4])
+        #self.print_info("Fground",u.x[:4])
+        '''
+        if (self.sim.sim_steps > 50):
+            breakpoint()
+        '''
         return u.x[:4]
 
     # given desired ground reaction force at foot (Fx,Fy)

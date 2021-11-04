@@ -1,6 +1,7 @@
+from common import *
 import pygame
 
-class Joystick:
+class Joystick(PrintObject):
     def __init__(self):
         pygame.joystick.init()
         joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
@@ -27,6 +28,7 @@ class Joystick:
             self.vals['RH'] = joystick.get_axis(3)
             self.vals['RV'] = joystick.get_axis(4)
             self.vals['RT'] = joystick.get_axis(5)
+            #self.print_info("joystick updated",self.vals)
 
 
 if __name__=="__main__":
