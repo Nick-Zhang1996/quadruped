@@ -5,6 +5,7 @@ from gurobipy import GRB
 import numpy as np
 from collections import namedtuple
 from recordclass import recordclass
+from timeUtil import *
 
 class Controller(PrintObject):
     def __init__(self,quadruped):
@@ -15,12 +16,16 @@ class Controller(PrintObject):
         self.dt = 0.01
         # horizon
         self.N = 10
+        self.t = execution_timer(True)
         return
 
     # centroidal dynamics, mpc
     # dp: position offset from ref (100,170)
     # pitch: target pitch in rad
     def mpc_stand(self,dp=(0,0), pitch=0):
+        t = self.t
+        t.s()
+        t.s('Controller Prep')
         quadruped = self.quadruped
         # reference position of robot, world frame
         # P_ref_world(t) = (x,y)
@@ -99,15 +104,21 @@ class Controller(PrintObject):
 
         bigQ = np.kron(np.eye(N),Q)
         bigR = np.kron(np.eye(N),R)
+        t.e('Controller Prep')
 
+        t.s("model")
         model = gp.Model("stand")
+        t.e("model")
+
         # supress output
+        t.s("param+var")
         model.setParam(GRB.Param.OutputFlag, 0)
         # [x1,x2,...xN]
         x = model.addMVar(shape=n*N, lb=-10000, ub=10000, name='x')
         # [u0, .... u(N-1)]
         # simple constraint
         u = model.addMVar(shape=m*N, lb=-20e3, ub=20e3, name='u')
+        t.e("param+var")
 
         body = quadruped.base_link.body
         x0 = [body.angle, body.position[0], body.position[1], body.angular_velocity, body.velocity[0], body.velocity[1]]
@@ -120,12 +131,15 @@ class Controller(PrintObject):
         #state_error = (x_ref_world - x0)[:3]
         #self.print_info("state_error" , state_error)
 
+        t.s("constrain sys")
         model.addConstr( x[:n] == G @ x0 + H @ u[:m] + F )
         for i in range(N-1):
             model.addConstr( x[n*(i+1):n*(i+2)] == G @ x[n*i:n*(i+1)] + H @ u[m*(i+1):m*(i+2)] + F )
+        t.e("constrain sys")
 
         # constraint on ground reaction (friction limit)
         mu = self.sim.ground_friction*0.4
+        t.s("constrain friction")
         for i in range(N):
             # |fx| < mu*fy
             model.addConstr( u[m*i + 0] <= mu * u[m*i + 1])
@@ -137,15 +151,22 @@ class Controller(PrintObject):
             model.addConstr( u[m*i + 2] >= -mu * u[m*i + 3])
             # fy > 0
             model.addConstr( u[m*i + 3] >= 0 )
+        t.e("constrain friction")
 
 
         # broadcast x_ref to fill horizon
         xr = np.repeat(x_ref_world.reshape(1,-1),N,axis=0).flatten()
         #obj = xr @ Q @ xr + x @ Q @ x - 2* xr @ Q @ x + u @ R @ u
         obj = xr @ bigQ @ xr + x @ bigQ @ x - 2* xr @ bigQ @ x + u @ bigR @ u
+        t.s("obj")
         model.setObjective(obj, GRB.MINIMIZE)
-        model.optimize()
+        t.e("obj")
 
+        t.s('Gurobi optimize')
+        model.optimize()
+        t.e('Gurobi optimize')
+
+        t.s('Post Processing')
         # verify constraints and model
         '''
         x_post = x.x
@@ -218,6 +239,8 @@ class Controller(PrintObject):
         if (self.sim.sim_steps > 50):
             breakpoint()
         '''
+        t.e('Post Processing')
+        t.e()
         return u.x[:4]
 
     # given desired ground reaction force at foot (Fx,Fy)

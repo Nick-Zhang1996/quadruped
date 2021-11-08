@@ -4,6 +4,7 @@ import pygame
 import pymunk
 import pymunk.pygame_util
 from Joystick import *
+from timeUtil import *
 
 import random
 random.seed(1)
@@ -18,6 +19,7 @@ from Quadruped import *
 
 class Sim(PrintObject):
     def __init__(self):
+        self.t = execution_timer(True)
         self.width = 800
         self.height = 600
         self.sim_dt = 1.0/500
@@ -124,12 +126,12 @@ class Sim(PrintObject):
         self.quadruped.rear_knee_motor(-torque)
         return
 
-    def checkExit(self):
+    def checkPygameEvent(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                sys.exit(0)
+                return True
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                sys.exit(0)
+                return True
             self.joystick.checkJoystickEvent(event)
 
     def updateDisplay(self):
@@ -145,15 +147,27 @@ class Sim(PrintObject):
         self.mytext = text
 
     def loop(self):
-        self.checkExit()
+        while (not self.checkPygameEvent()):
+            self.step()
+        self.t.summary()
+        self.quadruped.controller.t.summary()
+
+    def step(self):
+        t = self.t
+        t.s()
 
         # update control (include drawing)
+        t.s('updateControl')
         self.updateControl()
+        t.e('updateControl')
         #self.addDummyForce()
 
         # update simulation
+        t.s('sim step')
         self.space.step(self.sim_dt)
+        t.e('sim step')
         self.sim_steps += 1
+        t.s('display update')
         if (time() - self.last_display_update > 1.0/self.display_freq):
             self.last_display_update = time()
 
@@ -161,9 +175,11 @@ class Sim(PrintObject):
             #self.showText("sim: %d, control: %d, display %d" %(self.sim_steps, self.controller_steps, self.display_steps))
             self.updateDisplay()
             self.display_steps += 1
+        t.e('display update')
+        t.e()
 
 if __name__=="__main__":
     main = Sim()
-    while True:
-        main.loop()
+    main.loop()
+
 
