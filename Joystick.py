@@ -10,6 +10,8 @@ class Joystick(PrintObject):
         # LT:left trigger
         # LH: left horizontal
         self.vals = {'LT':-1,'RT':-1,'LH':0,'LV':0,'RH':0,'RV':0}
+        self.button_id_to_name = ['S','E','W','N','LB','RB','BACK','START']
+        self.button = {'S':0, 'E':0, 'W':0, 'N':0, 'LB':0, 'RB':0, 'BACK':0, 'START':0}
 
     def checkJoystickEvent(self,event):
         # Possible joystick actions: JOYAXISMOTION JOYBALLMOTION JOYBUTTONDOWN
@@ -20,6 +22,7 @@ class Joystick(PrintObject):
         if event.type == pygame.JOYBUTTONUP:
             print("Joystick button released.")
         '''
+        # reset button every time
         if event.type == pygame.JOYAXISMOTION:
             joystick = self.joystick
             self.vals['LH'] = joystick.get_axis(0)
@@ -29,6 +32,10 @@ class Joystick(PrintObject):
             self.vals['RV'] = joystick.get_axis(4)
             self.vals['RT'] = joystick.get_axis(5)
             #self.print_info("joystick updated",self.vals)
+        elif event.type == pygame.JOYBUTTONDOWN:
+            self.button[self.button_id_to_name[event.button]] = 1
+        elif event.type == pygame.JOYBUTTONUP:
+            self.button[self.button_id_to_name[event.button]] = 0
 
 
 if __name__=="__main__":
@@ -38,5 +45,6 @@ if __name__=="__main__":
     while True:
         for event in pygame.event.get():
             main.checkJoystickEvent(event)
-            print(main.vals)
+            #print(main.vals)
+            print(main.button)
 
