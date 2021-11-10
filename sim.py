@@ -22,7 +22,7 @@ class Sim(PrintObject):
         self.t = execution_timer(True)
         self.width = 800
         self.height = 600
-        self.sim_dt = 1.0/500
+        self.sim_dt = 1.0/1000
         self.display_freq = 50
         self.real_to_sim_speedup = 1
         self.last_display_update = time()

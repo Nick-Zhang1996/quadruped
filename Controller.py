@@ -6,6 +6,7 @@ import numpy as np
 from collections import namedtuple
 from recordclass import recordclass
 from timeUtil import *
+from math import degrees,radians
 
 class Controller(PrintObject):
     def __init__(self,quadruped):
@@ -61,7 +62,7 @@ class Controller(PrintObject):
         Q[0,0] *= 57
         Q[1,1] *= 1
         Q[2,2] *= 1
-        Q[3,3] *= 57*0.02
+        Q[3,3] *= 57*0.01
         Q[4,4] *= 0.01
         Q[5,5] *= 0.01
         #R = np.eye(m)*1e-8
@@ -84,6 +85,7 @@ class Controller(PrintObject):
         x = model.addMVar(shape=n*N, lb=-10000, ub=10000, name='x')
         # [u0, .... u(N-1)]
         # simple constraint
+        # TODO incorporate fy>Fmin here
         u = model.addMVar(shape=m*N, lb=-20e3, ub=20e3, name='u')
 
         # constraint on ground reaction (friction limit)
@@ -93,17 +95,19 @@ class Controller(PrintObject):
             model.addConstr( u[m*i + 0] <= mu * u[m*i + 1])
             model.addConstr( u[m*i + 0] >= -mu * u[m*i + 1])
             # fy > 0
-            model.addConstr( u[m*i + 1] >= 0 )
+            model.addConstr( u[m*i + 1] >= 1000 )
             # |fx| < mu*fy
             model.addConstr( u[m*i + 2] <= mu * u[m*i + 3])
             model.addConstr( u[m*i + 2] >= -mu * u[m*i + 3])
             # fy > 0
-            model.addConstr( u[m*i + 3] >= 0 )
+            model.addConstr( u[m*i + 3] >= 1000 )
 
         self.model = model
         self.gurobi_x = x
         self.gurobi_u = u
+        self.Q = Q
         self.bigQ = bigQ
+        self.R = R
         self.bigR = bigR
         self.d = d
         self.G = G
@@ -215,14 +219,34 @@ class Controller(PrintObject):
         # x acceleration
         x_acc = 1/mass * ( control[0] + control[2] )
         y_acc = 1/mass * ( control[1] + control[3] )  - self.g
-        w = 1/moment * (x_acc*mass * (-r[0,1]) + control[1] * r[0,0] - control[3] * r[1,0])
-        #self.print_info("ax: %.2f, ay: %.2f, a: %.2f"%(x_acc, y_acc, w))
-        #self.print_info("control: ", u.x[:4])
+        w = 1/moment * (x_acc*mass * (-r[0,1]) + control[1] * r[0,0] + control[3] * r[1,0])
+        self.print_info("ax: %.2f, ay: %.2f, a: %.2f"%(x_acc, y_acc, w))
+        self.print_info("control: ", u.x[:4])
 
         # return ground reaction
         #self.print_info("Fground",u.x[:4])
         t.e('Post Processing')
         t.e()
+
+        # draw anticipated trajectory
+        if (self.sim.joystick.button['S']):
+            Q = self.Q
+            R = self.R
+            x_predict = [x0]
+            J = 0
+            for i in range(N):
+                ctrl = u.x[m*i:m*(i+1)]
+                x_new = G @ x_predict[-1] + H @ ctrl + F
+                J += (x_new - x_ref_world).T @ Q @ (x_new - x_ref_world) + ctrl.T @ R @ ctrl
+                x_predict.append(x_new)
+                #pygame.draw.circle(self.screen, (0,0,0), x_new[1:3], 2)
+            x_predict = np.array(x_predict)
+            self.print_info("expected trajectory \n", x_predict)
+            self.print_info("expected x_f", x_predict[-1])
+            #self.print_info("expected J = %.2f"%(J))
+            self.print_info("current angle: %.2f expected EOH angle: %.2f"%(degrees(x0[0]), degrees(x_predict[-1,0])))
+            breakpoint()
+
         return u.x[:4]
 
 

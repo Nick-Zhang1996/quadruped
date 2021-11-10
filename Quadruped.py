@@ -96,10 +96,11 @@ class Quadruped(PrintObject):
         self.base_link = self.createBaseLink()
 
         # length, initial angle, mass
-        self.front_upper_link = Link(40,-radians(120), total_mass*0.1/4, None, self.base_link, False)
-        self.front_lower_link = Link(40,-radians(60), total_mass*0.1/4, None, self.front_upper_link, False)
-        self.rear_upper_link = Link(40,-radians(120), total_mass*0.1/4, None, self.base_link, True)
-        self.rear_lower_link = Link(40,-radians(60), total_mass*0.1/4, None, self.rear_upper_link, False)
+        each_limb_mass = (1-self.base_mass_ratio)/4*self.mass
+        self.front_upper_link = Link(40,-radians(120),each_limb_mass,  None, self.base_link, False)
+        self.front_lower_link = Link(40,-radians(60), each_limb_mass, None, self.front_upper_link, False)
+        self.rear_upper_link = Link(40,-radians(120), each_limb_mass, None, self.base_link, True)
+        self.rear_lower_link = Link(40,-radians(60),  each_limb_mass,None, self.rear_upper_link, False)
 
         self.links.append(self.front_upper_link)
         self.links.append(self.front_lower_link)
@@ -110,9 +111,10 @@ class Quadruped(PrintObject):
             link.add_to_space(self.space)
 
     def createBaseLink(self):
-        total_mass = 20
+        total_mass = self.mass
         base_length = 100
-        base_mass = 0.9*total_mass
+        self.base_mass_ratio = 0.95
+        base_mass = self.base_mass_ratio*total_mass
         #location, start, end
 
         # create base
@@ -203,7 +205,7 @@ class Quadruped(PrintObject):
     def controllerStep(self):
         if (self.sim.sim_steps * self.sim.sim_dt - self.last_controller_update > 1.0/self.controller_freq):
             js_vals = self.sim.joystick.vals
-            pitch = js_vals['RV']*radians(45)
+            pitch = js_vals['RV']*radians(30)
             dp = np.array([js_vals['LH'], -js_vals['LV']])*10
             #self.print_info("target pitch: %.2f(deg), x:%.1f, y:%.1f"%(degrees(pitch), dp[0], dp[1]))
             #ground_reaction_force = self.controller.mpc_stand(dp,pitch)
@@ -213,6 +215,6 @@ class Quadruped(PrintObject):
             self.last_controller_update = self.sim.sim_steps * self.sim.sim_dt
             self.sim.controller_steps += 1
             self.ground_reaction_force = ground_reaction_force
-        self.applyJointTorque(self.joint_torque)
-        #self.applyGroundReactionCheat(self.ground_reaction_force)
+        #self.applyJointTorque(self.joint_torque)
+        self.applyGroundReactionCheat(self.ground_reaction_force)
 
