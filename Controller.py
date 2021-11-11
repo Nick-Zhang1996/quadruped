@@ -14,7 +14,7 @@ class Controller(PrintObject):
         self.sim = quadruped.sim
         self.g = 9.8*100
         # discretization step for MPC
-        self.dt = 0.01
+        self.dt = 0.05
         # horizon
         self.N = 10
         self.t = execution_timer(True)
@@ -59,20 +59,14 @@ class Controller(PrintObject):
         # J = sum( (x_ref - x).T Q (x_ref-x) + u.T R u )
         Q = np.eye(n)
         # x = [pitch, x, y, omega, vx, vy ]
-        Q[0,0] *= 57
+        Q[0,0] *= 57*10
         Q[1,1] *= 1
         Q[2,2] *= 1
         Q[3,3] *= 57*0.01
         Q[4,4] *= 0.01
         Q[5,5] *= 0.01
-        #R = np.eye(m)*1e-8
-        R = np.zeros((m,m))
-        '''
-        R[0,0] = 1e-6
-        R[2,2] = 1e-6
-        R[1,1] = 1e-6
-        R[3,3] = 1e-6
-        '''
+        R = np.eye(m)*1e-8
+        #R = np.zeros((m,m))
 
         bigQ = np.kron(np.eye(N),Q)
         bigR = np.kron(np.eye(N),R)
@@ -502,6 +496,13 @@ class Controller(PrintObject):
         front_shoulder_joint.torque = -getCrossMatrix(front_foot.pos - front_shoulder_joint.pos) @ front_foot.Fground
         rear_knee_joint.torque = -getCrossMatrix(rear_foot.pos - rear_knee_joint.pos) @ rear_foot.Fground
         rear_shoulder_joint.torque = -getCrossMatrix(rear_foot.pos - rear_shoulder_joint.pos) @ rear_foot.Fground
+
+        '''
+        front_knee_joint.torque = -getCrossMatrix(front_foot.pos - front_knee_joint.pos) @ front_foot.Fground  -getCrossMatrix(rear_foot.pos - front_knee_joint.pos) @ rear_foot.Fground
+        front_shoulder_joint.torque = -getCrossMatrix(front_foot.pos - front_shoulder_joint.pos) @ front_foot.Fground-getCrossMatrix(rear_foot.pos - front_shoulder_joint.pos) @ rear_foot.Fground
+        rear_knee_joint.torque = -getCrossMatrix(rear_foot.pos - rear_knee_joint.pos) @ rear_foot.Fground-getCrossMatrix(front_foot.pos - rear_knee_joint.pos) @ front_foot.Fground
+        rear_shoulder_joint.torque = -getCrossMatrix(rear_foot.pos - rear_shoulder_joint.pos) @ rear_foot.Fground-getCrossMatrix(front_foot.pos - rear_shoulder_joint.pos) @ front_foot.Fground
+        '''
 
 
         joint_torques =  [joint.torque for joint in joints]

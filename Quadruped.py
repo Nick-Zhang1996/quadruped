@@ -215,6 +215,6 @@ class Quadruped(PrintObject):
             self.last_controller_update = self.sim.sim_steps * self.sim.sim_dt
             self.sim.controller_steps += 1
             self.ground_reaction_force = ground_reaction_force
-        #self.applyJointTorque(self.joint_torque)
-        self.applyGroundReactionCheat(self.ground_reaction_force)
+        self.applyJointTorque(self.joint_torque)
+        #self.applyGroundReactionCheat(self.ground_reaction_force)
 
