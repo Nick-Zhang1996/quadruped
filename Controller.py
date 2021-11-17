@@ -496,21 +496,6 @@ class Controller(PrintObject):
         rear_knee_joint.torque = -np.cross(rear_foot.pos - rear_knee_joint.pos, rear_foot.Fground)
         rear_shoulder_joint.torque = -np.cross(rear_foot.pos - rear_shoulder_joint.pos, rear_foot.Fground)
 
-        '''
-        # alternative using strict definition of jacobian
-        # front
-        r_k = r_knee_foot = front_foot.pos - front_knee_joint.pos
-        r_s = r_shoulder_foot = front_foot.pos - front_shoulder_joint.pos
-        J_front = np.array([[-r_s[1],-r_k[1]],[r_s[0], r_k[0]]])
-        torque_front = -J_front.T @ front_foot.Fground[:2].reshape(-1,1)
-        # rear
-        r_k = r_knee_foot = rear_foot.pos - rear_knee_joint.pos
-        r_s = r_shoulder_foot = rear_foot.pos - rear_shoulder_joint.pos
-        J_rear = np.array([[-r_s[1],-r_k[1]],[r_s[0], r_k[0]]])
-        torque_rear = -J_rear.T @ rear_foot.Fground[:2].reshape(-1,1)
-        joint_torques = [torque_front[1], torque_front[0], torque_rear[1], torque_rear[0]]
-        '''
-
         joint_torques =  [joint.torque[2] for joint in joints]
         #print("joint torque")
         #print([joint_torques[0][2], joint_torques[1][2], joint_torques[2][2], joint_torques[3][2]])
