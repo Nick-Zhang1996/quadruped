@@ -126,6 +126,7 @@ class Controller(PrintObject):
         # P_ref_world(t) = (x,y)
         # constant when standing
         p_ref_world = np.array([100,160]) + np.array(dp)
+        #p_ref_world = np.array([90,130]) + np.array(dp)
         # state dimension
         n = 6
         # control dimension, legs*dim
@@ -214,8 +215,11 @@ class Controller(PrintObject):
         x_acc = 1/mass * ( control[0] + control[2] )
         y_acc = 1/mass * ( control[1] + control[3] )  - self.g
         w = 1/moment * (x_acc*mass * (-r[0,1]) + control[1] * r[0,0] + control[3] * r[1,0])
-        self.print_info("ax: %.2f, ay: %.2f, a: %.2f"%(x_acc, y_acc, w))
-        self.print_info("control: ", u.x[:4])
+        #self.print_info("ax: %.2f, ay: %.2f, a: %.2f"%(x_acc, y_acc, w))
+        #self.print_info("control: ", u.x[:4])
+        ctrl = u.x[:4]
+        self.print_info("requested",(u.x[0] + u.x[2], u.x[1] + u.x[3]))
+        self.print_info("actual",self.quadruped.front_ground_reaction + self.quadruped.rear_ground_reaction)
 
         # return ground reaction
         #self.print_info("Fground",u.x[:4])
@@ -492,20 +496,35 @@ class Controller(PrintObject):
         rear_shoulder_joint = Joint(quadruped.rear_shoulder_pos_np(), 0)
         joints = [front_knee_joint, front_shoulder_joint, rear_knee_joint, rear_shoulder_joint]
 
+        '''
         front_knee_joint.torque = -getCrossMatrix(front_foot.pos - front_knee_joint.pos) @ front_foot.Fground
         front_shoulder_joint.torque = -getCrossMatrix(front_foot.pos - front_shoulder_joint.pos) @ front_foot.Fground
         rear_knee_joint.torque = -getCrossMatrix(rear_foot.pos - rear_knee_joint.pos) @ rear_foot.Fground
         rear_shoulder_joint.torque = -getCrossMatrix(rear_foot.pos - rear_shoulder_joint.pos) @ rear_foot.Fground
-
-        '''
-        front_knee_joint.torque = -getCrossMatrix(front_foot.pos - front_knee_joint.pos) @ front_foot.Fground  -getCrossMatrix(rear_foot.pos - front_knee_joint.pos) @ rear_foot.Fground
-        front_shoulder_joint.torque = -getCrossMatrix(front_foot.pos - front_shoulder_joint.pos) @ front_foot.Fground-getCrossMatrix(rear_foot.pos - front_shoulder_joint.pos) @ rear_foot.Fground
-        rear_knee_joint.torque = -getCrossMatrix(rear_foot.pos - rear_knee_joint.pos) @ rear_foot.Fground-getCrossMatrix(front_foot.pos - rear_knee_joint.pos) @ front_foot.Fground
-        rear_shoulder_joint.torque = -getCrossMatrix(rear_foot.pos - rear_shoulder_joint.pos) @ rear_foot.Fground-getCrossMatrix(front_foot.pos - rear_shoulder_joint.pos) @ front_foot.Fground
         '''
 
+        front_knee_joint.torque = -np.cross(front_foot.pos - front_knee_joint.pos, front_foot.Fground)
+        front_shoulder_joint.torque = -np.cross(front_foot.pos - front_shoulder_joint.pos, front_foot.Fground)
+        rear_knee_joint.torque = -np.cross(rear_foot.pos - rear_knee_joint.pos, rear_foot.Fground)
+        rear_shoulder_joint.torque = -np.cross(rear_foot.pos - rear_shoulder_joint.pos, rear_foot.Fground)
+        '''
 
-        joint_torques =  [joint.torque for joint in joints]
+        # front
+        r_k = r_knee_foot = front_foot.pos - front_knee_joint.pos
+        r_s = r_shoulder_foot = front_foot.pos - front_shoulder_joint.pos
+        J_front = np.array([[r_s[1],r_k[1]],[r_s[0], r_k[0]]])
+        torque_front = -J_front.T @ front_foot.Fground[:2]
+        # rear
+        r_k = r_knee_foot = rear_foot.pos - rear_knee_joint.pos
+        r_s = r_shoulder_foot = rear_foot.pos - rear_shoulder_joint.pos
+        J_rear = np.array([[r_s[1],r_k[1]],[r_s[0], r_k[0]]])
+        torque_rear = -J_rear.T @ rear_foot.Fground[:2]
+        '''
+
+
+
+        #joint_torques = [torque_front[1], torque_front[0], torque_rear[1], torque_rear[0]]
+        joint_torques =  [joint.torque[2] for joint in joints]
         #print("joint torque")
         #print([joint_torques[0][2], joint_torques[1][2], joint_torques[2][2], joint_torques[3][2]])
         return joint_torques

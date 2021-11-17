@@ -71,7 +71,19 @@ class Sim(PrintObject):
         self.space.add_collision_handler(collision_types['ground'], collision_types['body']).begin = collide
         self.space.add_collision_handler(collision_types['body'], collision_types['body']).begin = no_collide
         self.space.add_collision_handler(collision_types['body'], collision_types['obstacle']).begin = collide
+
+        # get contact forces for debugging
+        #update_contact_forces = lambda a,s,d: self.updateContactForces(a, s, d)
+        self.space.add_collision_handler(collision_types['ground'], collision_types['body']).post_solve = self.update_contact_forces
         return
+
+    def update_contact_forces(self, arbiter, space, data):
+        if (self.quadruped.front_lower_link.shape in arbiter.shapes or self.quadruped.front_lower_link.circle in arbiter.shapes):
+            self.quadruped.front_ground_reaction = np.array(arbiter.total_impulse) / self.sim_dt
+        elif (self.quadruped.rear_lower_link.shape in arbiter.shapes or self.quadruped.rear_lower_link.circle in arbiter.shapes):
+            self.quadruped.rear_ground_reaction = np.array(arbiter.total_impulse) / self.sim_dt
+        else:
+            self.print_warning("unexpected contact")
 
     def addBall(self):
         """Add a ball to the given space at a random position"""

@@ -12,13 +12,16 @@ from Controller import *
 
 class Link(PrintObject):
     # create a link, attached to parent_body at it's a or b point (start/finish), also add a joint at connection. Start(a) of this link is the connecting point
-    def __init__(self, length=None, angle=None, mass=None, moment=None, parent_link=None, joint_at_start=True):
+    def __init__(self, length=None, angle=None, mass=None, moment=None, parent_link=None, joint_at_start=True, add_circle_at_end = False):
         self.length = length
         self.shape = None
         self.body = None
         self.thickness = 4
         self.mass = None
         self.joint = None
+        self.circle = None
+        self.front_ground_reaction = (0,0)
+        self.rear_ground_reaction = (0,0)
         if (parent_link is None):
             # return empty class
             return
@@ -40,6 +43,10 @@ class Link(PrintObject):
         self.shape = pymunk.Segment(self.body, ( -length/2,0), (length/2,0), self.thickness/2)
         self.shape.collision_type = collision_types['body']
         self.shape.friction = 1.0
+        if (add_circle_at_end):
+            self.circle = pymunk.Circle(self.body, 3.0, (length/2,0))
+            self.circle.friction = 1.0
+            self.circle.collision_type = collision_types['body']
 
         # this is the joint connecting this link to the parent link
         if (joint_at_start):
@@ -55,6 +62,8 @@ class Link(PrintObject):
         space.add(self.body, self.shape)
         if (not self.joint is None):
             space.add(self.joint)
+        if (not self.circle is None):
+            space.add(self.circle)
 
 
     def get_start_position(self):
@@ -83,7 +92,8 @@ class Quadruped(PrintObject):
 
         # controller related
         self.controller_freq = 250
-        self.joint_torque = np.zeros((4,3))
+        #self.joint_torque = np.zeros((4,3))
+        self.joint_torque = np.zeros(4)
         self.ground_reaction_force = np.zeros(4)
         # unit: sim time
         self.last_controller_update = 0
@@ -98,9 +108,9 @@ class Quadruped(PrintObject):
         # length, initial angle, mass
         each_limb_mass = (1-self.base_mass_ratio)/4*self.mass
         self.front_upper_link = Link(40,-radians(120),each_limb_mass,  None, self.base_link, False)
-        self.front_lower_link = Link(40,-radians(60), each_limb_mass, None, self.front_upper_link, False)
+        self.front_lower_link = Link(40,-radians(60), each_limb_mass, None, self.front_upper_link, False,True)
         self.rear_upper_link = Link(40,-radians(120), each_limb_mass, None, self.base_link, True)
-        self.rear_lower_link = Link(40,-radians(60),  each_limb_mass,None, self.rear_upper_link, False)
+        self.rear_lower_link = Link(40,-radians(60),  each_limb_mass,None, self.rear_upper_link, False, True)
 
         self.links.append(self.front_upper_link)
         self.links.append(self.front_lower_link)
@@ -135,20 +145,20 @@ class Quadruped(PrintObject):
         return base_link
 
     def front_shoulder_motor(self, torque):
-        self.front_upper_link.body.torque = torque
-        self.base_link.body.torque = -torque
+        self.front_upper_link.body.torque += torque
+        self.base_link.body.torque += -torque
 
     def front_knee_motor(self, torque):
-        self.front_lower_link.body.torque = torque
-        self.front_upper_link.body.torque = -torque
+        self.front_lower_link.body.torque += torque
+        self.front_upper_link.body.torque += -torque
 
     def rear_shoulder_motor(self, torque):
-        self.rear_upper_link.body.torque = torque
-        self.base_link.body.torque = -torque
+        self.rear_upper_link.body.torque += torque
+        self.base_link.body.torque += -torque
 
     def rear_knee_motor(self, torque):
-        self.rear_lower_link.body.torque = torque
-        self.rear_upper_link.body.torque = -torque
+        self.rear_lower_link.body.torque += torque
+        self.rear_upper_link.body.torque += -torque
 
     def front_shoulder_pos_np(self):
         return np.array(self.front_upper_link.get_start_position())
@@ -197,10 +207,16 @@ class Quadruped(PrintObject):
         self.rear_shoulder_motor( joint_torque[3][2])
 
     def applyJointTorque(self, joint_torque):
+        self.front_knee_motor( joint_torque[0])
+        self.front_shoulder_motor( joint_torque[1])
+        self.rear_knee_motor( joint_torque[2])
+        self.rear_shoulder_motor( joint_torque[3])
+        '''
         self.front_knee_motor( joint_torque[0][2])
         self.front_shoulder_motor( joint_torque[1][2])
         self.rear_knee_motor( joint_torque[2][2])
         self.rear_shoulder_motor( joint_torque[3][2])
+        '''
 
     def controllerStep(self):
         if (self.sim.sim_steps * self.sim.sim_dt - self.last_controller_update > 1.0/self.controller_freq):
