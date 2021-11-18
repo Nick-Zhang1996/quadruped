@@ -1,5 +1,9 @@
 collision_types = {'ground':0, 'body':1, 'obstacle':2}
 
+# map x in range (a,b) to range (c,d)
+def map(x,a,b,c,d):
+    return (x-a)/(b-a)*(d-c)+c
+
 def print_error(*message):
     print('\033[91m', 'ERROR ', *message, '\033[0m')
     raise RuntimeError

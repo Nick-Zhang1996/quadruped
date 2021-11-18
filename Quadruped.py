@@ -224,7 +224,6 @@ class Quadruped(PrintObject):
             pitch = js_vals['RV']*radians(30)
             dp = np.array([js_vals['LH'], -js_vals['LV']])*10
             #self.print_info("target pitch: %.2f(deg), x:%.1f, y:%.1f"%(degrees(pitch), dp[0], dp[1]))
-            #ground_reaction_force = self.controller.mpc_stand(dp,pitch)
             ground_reaction_force = self.controller.step(dp,pitch)
 
             self.joint_torque = self.controller.calcJointTorque(ground_reaction_force)

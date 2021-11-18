@@ -161,7 +161,9 @@ class Sim(PrintObject):
     def loop(self):
         while (not self.checkPygameEvent()):
             self.step()
+        print("sim loop summary")
         self.t.summary()
+        print("controller summary")
         self.quadruped.controller.t.summary()
 
     def step(self):
