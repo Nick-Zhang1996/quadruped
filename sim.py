@@ -62,6 +62,10 @@ class Sim(PrintObject):
         #self.ball = self.addBall()
         self.quadruped = Quadruped(self, (100,170))
 
+    def exit(self):
+        self.print_info()
+        self.t.summary()
+        self.quadruped.exit()
 
     def setCollisionHandler(self):
         def collide(x,y,z):
@@ -109,7 +113,7 @@ class Sim(PrintObject):
         self.space.add(segment)
 
     def updateControl(self):
-        self.quadruped.controllerStep()
+        self.quadruped.step()
         return
 
     def addDummyForce(self):
@@ -161,10 +165,7 @@ class Sim(PrintObject):
     def loop(self):
         while (not self.checkPygameEvent()):
             self.step()
-        print("sim loop summary")
-        self.t.summary()
-        print("controller summary")
-        self.quadruped.controller.t.summary()
+        self.exit()
 
     def step(self):
         t = self.t

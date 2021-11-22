@@ -10,18 +10,22 @@ from timeUtil import *
 from math import degrees,radians
 
 class Controller(PrintObject):
-    def __init__(self,quadruped):
+    def __init__(self,quadruped, dt, horizon):
         self.quadruped = quadruped
         self.sim = quadruped.sim
         self.g = 9.8*100
-        # discretization step for MPC
-        self.dt = 0.05
-        # horizon
-        self.N = 10
+        # discretization step for MPC 0.05
+        self.dt = dt
+        # horizon, 10
+        self.N = horizon
         self.t = execution_timer(True)
         np.set_printoptions(precision=4)
         self.gurobi_constraints = []
         return
+
+    def exit(self):
+        self.print_info()
+        self.t.summary()
 
     # build gurobi model
     # centroidal dynamics, mpc
@@ -109,7 +113,12 @@ class Controller(PrintObject):
         self.A = A
         return
 
-    def step(self,dp=(0,0), pitch=0):
+    def step(self,contact_schedule, target_state):
+        # broadcast x_ref to fill horizon
+        # TODO verify fimension
+        # x1,x2,x3.. x1,x2,x3
+        xr = target_state.flatten()
+
         model = self.model
         x = self.gurobi_x
         u = self.gurobi_u
@@ -124,10 +133,6 @@ class Controller(PrintObject):
         t.s('Controller Prep')
         quadruped = self.quadruped
         # reference position of robot, world frame
-        # P_ref_world(t) = (x,y)
-        # constant when standing
-        p_ref_world = np.array([100,160]) + np.array(dp)
-        #p_ref_world = np.array([90,130]) + np.array(dp)
         # state dimension
         n = 6
         # control dimension, legs*dim
@@ -142,9 +147,6 @@ class Controller(PrintObject):
         r_world = np.zeros((leg_count, dim))
         r_world[0] = quadruped.front_foot_pos()
         r_world[1] = quadruped.rear_foot_pos()
-        # fake leg position
-        #r_world[0] = np.array((150,100))
-        #r_world[1] = np.array((50,100))
 
         # check alignment
         p_world = np.array(self.quadruped.base_link.body.position)
@@ -169,8 +171,6 @@ class Controller(PrintObject):
         H = B*self.dt
         F = d*self.dt
 
-        # target state
-        x_ref_world = np.hstack([[pitch],p_ref_world,[0,0,0]])
 
         # formulate optimization problem
         # J = sum( (x_ref - x).T Q (x_ref-x) + u.T R u )
@@ -180,10 +180,6 @@ class Controller(PrintObject):
         body = quadruped.base_link.body
         x0 = [body.angle, body.position[0], body.position[1], body.angular_velocity, body.velocity[0], body.velocity[1]]
         x0 = np.array(x0)
-
-        # pitch, x,y
-        #state_error = (x_ref_world - x0)[:3]
-        #self.print_info("state_error" , state_error)
 
         t.s("constrain dynamics")
         [model.remove(constr) for constr in self.gurobi_constraints]
@@ -197,8 +193,6 @@ class Controller(PrintObject):
         t.e("constrain dynamics")
 
 
-        # broadcast x_ref to fill horizon
-        xr = np.repeat(x_ref_world.reshape(1,-1),N,axis=0).flatten()
         #obj = xr @ Q @ xr + x @ Q @ x - 2* xr @ Q @ x + u @ R @ u
         obj = xr @ bigQ @ xr + x @ bigQ @ x - 2* xr @ bigQ @ x + u @ bigR @ u
         t.s("obj")
@@ -228,6 +222,7 @@ class Controller(PrintObject):
         t.e()
 
         # draw anticipated trajectory
+        x_ref_world = xr.reshape((N,n))
         if (self.sim.joystick.button['S']):
             Q = self.Q
             R = self.R
@@ -236,7 +231,7 @@ class Controller(PrintObject):
             for i in range(N):
                 ctrl = u.x[m*i:m*(i+1)]
                 x_new = G @ x_predict[-1] + H @ ctrl + F
-                J += (x_new - x_ref_world).T @ Q @ (x_new - x_ref_world) + ctrl.T @ R @ ctrl
+                J += (x_new - x_ref_world[i]).T @ Q @ (x_new - x_ref_world[i]) + ctrl.T @ R @ ctrl
                 x_predict.append(x_new)
                 #pygame.draw.circle(self.screen, (0,0,0), x_new[1:3], 2)
             x_predict = np.array(x_predict)
@@ -276,6 +271,5 @@ class Controller(PrintObject):
         #print("joint torque")
         #print([joint_torques[0][2], joint_torques[1][2], joint_torques[2][2], joint_torques[3][2]])
         return joint_torques
-
 
 

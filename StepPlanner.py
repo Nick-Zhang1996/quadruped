@@ -1,18 +1,27 @@
 from common import *
 from math import degrees,radians
+from Controller import *
 class StepPlanner(PrintObject):
-    def __init__(self, sim):
+    def __init__(self, sim, quadruped):
         self.sim = sim
-        self.quadruped = sim.quadruped
-        self.horizon = 20
-        self.dt = 0.01
+        self.quadruped = quadruped
+        self.horizon = 10
+        self.dt = 0.05
         self.current_plan = None
         self.current_plan_t0 = 0
         self.name_to_plan = {}
         self.getTime = self.dummyGetTime
+        self.joint_torque = [0,0,0,0]
+        self.ground_reaction_force = [0,0,0,0]
+        # WBC
+        self.controller = Controller(self.quadruped, self.dt, self.horizon)
+        self.controller.buildModel()
+
         self.newPlan('stand',self.getPlanStand)
         # jump = squat + jump + in_air + landing
         self.newPlan('jump',self.getPlanSquat)
+    def exit(self):
+        self.controller.exit()
 
     def dummyGetTime(self):
         print_error("set this to a function that returns current time")
@@ -24,11 +33,25 @@ class StepPlanner(PrintObject):
     # name: stand, squat, jump, land
     def setPlan(self,name):
         self.current_plan_t0 = time()
+        self.current_plan = self.name_to_plan[name]
         self.getPlan(True)
 
-    # for sequential plan, update plan if needs be, kind of like a FSM
-    def updatePlan(self):
+    # contact schedule: N*2 (bool)
+    # target_state: N*n (float)
+    # time_left: float
+    def step(self):
+        contact_schedule, target_state, time_left = self.getPlan()
+        Fground = self.controller.step(contact_schedule, target_state)
+        self.ground_reaction_force = Fground
+        self.joint_torque = self.controller.calcJointTorque(self.ground_reaction_force)
         pass
+
+    def getJointTorque(self):
+        return self.joint_torque
+
+
+    def getGroundReactionForce(self):
+        return self.ground_reaction_force
 
     # horizon: plan horizon steps
     # dt: plan step size
@@ -37,13 +60,15 @@ class StepPlanner(PrintObject):
     # target pitch,x,y,omega, vx,vy
     # remaining time in plan, <0 means to switch
     def getPlan(self, first_call = False):
-        return self.name_to_plan[self.current_plan](first_call)
+        return self.current_plan(first_call)
 
     # getPlan for squatting down
+    # TODO
     def getPlanSquat(self, first_call):
         return contact_schedule, target_state,1
 
     # getPlan for jump
+    # TODO
     def getPlanJump(self, first_call):
         return contact_schedule, target_state,1
 
