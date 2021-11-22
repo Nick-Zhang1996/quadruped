@@ -2,7 +2,9 @@ from common import *
 import pygame
 
 class Joystick(PrintObject):
-    def __init__(self):
+    def __init__(self,event):
+        self.event = event
+        self.event.joystick = self
         pygame.joystick.init()
         joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
         self.joystick = joysticks[0]

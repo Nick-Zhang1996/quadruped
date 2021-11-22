@@ -10,9 +10,10 @@ from timeUtil import *
 from math import degrees,radians
 
 class Controller(PrintObject):
-    def __init__(self,quadruped, dt, horizon):
-        self.quadruped = quadruped
-        self.sim = quadruped.sim
+    def __init__(self,event, dt, horizon):
+        self.quadruped = event.quadruped
+        self.sim = event.sim
+        self.event = event
         self.g = 9.8*100
         # discretization step for MPC 0.05
         self.dt = dt
@@ -213,8 +214,8 @@ class Controller(PrintObject):
         #self.print_info("ax: %.2f, ay: %.2f, a: %.2f"%(x_acc, y_acc, w))
         #self.print_info("control: ", u.x[:4])
         ctrl = u.x[:4]
-        self.print_info("requested",(u.x[0] + u.x[2], u.x[1] + u.x[3]))
-        self.print_info("actual",self.quadruped.front_ground_reaction + self.quadruped.rear_ground_reaction)
+        #self.print_info("requested",(u.x[0] + u.x[2], u.x[1] + u.x[3]))
+        #self.print_info("actual",self.quadruped.front_ground_reaction + self.quadruped.rear_ground_reaction)
 
         # return ground reaction
         #self.print_info("Fground",u.x[:4])
@@ -223,6 +224,7 @@ class Controller(PrintObject):
 
         # draw anticipated trajectory
         x_ref_world = xr.reshape((N,n))
+        '''
         if (self.sim.joystick.button['S']):
             Q = self.Q
             R = self.R
@@ -240,6 +242,7 @@ class Controller(PrintObject):
             #self.print_info("expected J = %.2f"%(J))
             self.print_info("current angle: %.2f expected EOH angle: %.2f"%(degrees(x0[0]), degrees(x_predict[-1,0])))
             breakpoint()
+        '''
 
         return u.x[:4]
 

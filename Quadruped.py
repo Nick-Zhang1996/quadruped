@@ -10,14 +10,17 @@ from math import radians,degrees,cos,sin
 import numpy as np
 from StepPlanner import *
 from Link import *
+from Event import *
 
 
 class Quadruped(PrintObject):
-    def __init__(self, sim,  position):
+    def __init__(self, event,  position):
         self.base_position = position
         self.mass = 20
-        self.sim = sim
-        self.space = sim.space
+        self.event = event
+        self.event.quadruped = self
+        self.sim = event.sim
+        self.space = event.sim.space
         self.links = []
         self.addLinks()
 
@@ -30,13 +33,12 @@ class Quadruped(PrintObject):
         # unit: sim time
         self.last_controller_update = 0
 
-        self.step_planner = StepPlanner(sim,self)
+        self.step_planner = StepPlanner(event)
         self.step_planner.getTime = self.getTime
         self.step_planner.setPlan('stand')
 
     def exit(self):
         self.step_planner.exit()
-
 
     def addLinks(self):
         total_mass = self.mass
@@ -171,3 +173,6 @@ class Quadruped(PrintObject):
 
     def getTime(self):
         return self.sim.sim_steps*self.sim.sim_dt
+    def getState(self):
+        body = self.base_link.body
+        return np.array([body.angle, body.position[0], body.position[1], body.angular_velocity, body.velocity[0], body.velocity[1]])

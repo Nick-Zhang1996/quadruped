@@ -16,6 +16,7 @@ from time import time
 
 from common import *
 from Quadruped import *
+from Event import *
 
 class Sim(PrintObject):
     def __init__(self):
@@ -26,6 +27,8 @@ class Sim(PrintObject):
         self.display_freq = 50
         self.real_to_sim_speedup = 1
         self.last_display_update = time()
+        self.event = Event()
+        self.event.sim = self
 
         self.display_steps = 0
         self.controller_steps = 0
@@ -34,7 +37,7 @@ class Sim(PrintObject):
 
         pygame.init()
         self.clock = pygame.time.Clock()
-        self.joystick = Joystick()
+        self.joystick = Joystick(self.event)
 
         # screen setting
         self.screen = pygame.display.set_mode((self.width, self.height))
@@ -60,7 +63,7 @@ class Sim(PrintObject):
 
         # DEBUG
         #self.ball = self.addBall()
-        self.quadruped = Quadruped(self, (100,170))
+        self.quadruped = Quadruped(self.event, (100,170))
 
     def exit(self):
         self.print_info()
