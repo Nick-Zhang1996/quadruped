@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 class StepPlanner(PrintObject):
     def __init__(self, event):
         self.sim = event.sim
+        event.step_planner = self
         self.quadruped = event.quadruped
         self.event = event
         self.horizon = 10
@@ -52,9 +53,12 @@ class StepPlanner(PrintObject):
     def step(self):
         self.processJoystick()
         contact_schedule, target_state, time_left = self.getPlan()
-        Fground = self.controller.step(contact_schedule, target_state)
-        self.ground_reaction_force = Fground
-        self.joint_torque = self.controller.calcJointTorque(self.ground_reaction_force)
+        # joint order  [front_knee_joint, front_shoulder_joint, rear_knee_joint, rear_shoulder_joint]
+        # 0 means all legs pointing downward
+        target_angle = [radians(30),-radians(120),0,-radians(120)]
+        self.controller.step(contact_schedule, target_state, target_angle)
+        self.joint_torque = self.controller.getJointTorque()
+
         if (not time_left):
             self.updatePlan()
 
@@ -67,8 +71,6 @@ class StepPlanner(PrintObject):
 
     def getJointTorque(self):
         return self.joint_torque
-
-
     def getGroundReactionForce(self):
         return self.ground_reaction_force
 

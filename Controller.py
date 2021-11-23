@@ -8,6 +8,7 @@ from collections import namedtuple
 from recordclass import recordclass
 from timeUtil import *
 from math import degrees,radians
+from PidController import *
 
 class Controller(PrintObject):
     def __init__(self,event, dt, horizon):
@@ -114,9 +115,25 @@ class Controller(PrintObject):
         self.A = A
         return
 
-    def step(self,contact_schedule, target_state):
+    # step controller, select contact leg or swing leg
+    # contact schedule: N*2 (bool)
+    # target_state: N*n (float)
+    # target_angle: 4, only valid if a leg is scheduled to be swinging
+    def step(self,contact_schedule, target_state, target_angle):
+        # FIXME
+        #self.ground_reaction_force = self.contactLegControl(contact_schedule, target_state)
+        contact_schedule = [[False, False, False, False]]
+        Fground = [0,0,0,0]
+        self.joint_torque = self.calcJointTorque(Fground, contact_schedule[0], target_angle)
+
+
+    def getJointTorque(self):
+        return self.joint_torque
+    def getGroundReactionForce(self):
+        return self.ground_reaction_force
+
+    def contactLegControl(self, contact_schedule, target_state):
         # broadcast x_ref to fill horizon
-        # TODO verify fimension
         # x1,x2,x3.. x1,x2,x3
         xr = target_state.flatten()
 
@@ -249,30 +266,58 @@ class Controller(PrintObject):
     # given desired ground reaction force at foot (Fx,Fy)
     # calculate and joint torques
     # Fground: force at foot, ground -> foot
-    def calcJointTorque(self, Fground):
+    def calcJointTorque(self, Fground, contact_schedule, target_angle):
         quadruped = self.quadruped
-        # torque = - (pos_joint - pos_foot) X Fground
-        Joint = recordclass('Joint', 'pos torque')
+        Joint = recordclass('Joint', 'pos torque angle')
         Foot = namedtuple('Foot', 'pos Fground')
 
         front_foot = Foot(quadruped.front_foot_pos_np(), np.array([Fground[0],Fground[1],0]))
+        front_knee_joint = Joint(quadruped.front_knee_pos_np(), 0, 0)
+        front_shoulder_joint = Joint(quadruped.front_shoulder_pos_np(), 0, 0)
+
         rear_foot = Foot(quadruped.rear_foot_pos_np(), np.array([Fground[2], Fground[3],0]))
+        rear_knee_joint = Joint(quadruped.rear_knee_pos_np(), 0, 0)
+        rear_shoulder_joint = Joint(quadruped.rear_shoulder_pos_np(), 0, 0)
+        base_angle = quadruped.base_link.body.angle
+        base_omega = quadruped.base_link.body.angular_velocity
+        # front
+        if (contact_schedule[0]):
+            # feed forward
+            # torque = - (pos_joint - pos_foot) X Fground
+            front_knee_joint.torque = -np.cross(front_foot.pos - front_knee_joint.pos, front_foot.Fground)[2]
+            front_shoulder_joint.torque = -np.cross(front_foot.pos - front_shoulder_joint.pos, front_foot.Fground)[2]
+        else:
+            if (quadruped.front_foot_contact != contact_schedule[0]):
+                quadruped.front_knee_joint_pid.reset()
+                quadruped.front_shoulder_joint_pid.reset()
+            # swing leg control
+            angle = quadruped.front_lower_link.body.angle - quadruped.front_upper_link.body.angle
+            omega = quadruped.front_lower_link.body.angular_velocity - quadruped.front_lower_link.body.angular_velocity
+            front_knee_joint.torque = quadruped.front_knee_joint_pid.control(target_angle[0], angle, omega)
 
-        front_knee_joint = Joint(quadruped.front_knee_pos_np(), 0)
-        front_shoulder_joint = Joint(quadruped.front_shoulder_pos_np(), 0)
-        rear_knee_joint = Joint(quadruped.rear_knee_pos_np(), 0)
-        rear_shoulder_joint = Joint(quadruped.rear_shoulder_pos_np(), 0)
+            angle = quadruped.front_upper_link.body.angle - base_angle
+            omega = quadruped.front_upper_link.body.angular_velocity - base_omega
+            front_shoulder_joint.torque = quadruped.front_shoulder_joint_pid.control(target_angle[1], angle, omega)
+        quadruped.front_foot_contact = contact_schedule[0]
+
+        if (contact_schedule[1]):
+            rear_knee_joint.torque = -np.cross(rear_foot.pos - rear_knee_joint.pos, rear_foot.Fground)[2]
+            rear_shoulder_joint.torque = -np.cross(rear_foot.pos - rear_shoulder_joint.pos, rear_foot.Fground)[2]
+        else:
+            if (quadruped.rear_foot_contact != contact_schedule[0]):
+                quadruped.rear_knee_joint_pid.reset()
+                quadruped.rear_shoulder_joint_pid.reset()
+            # swing leg control
+            angle = quadruped.rear_lower_link.body.angle - quadruped.rear_upper_link.body.angle
+            omega = quadruped.rear_lower_link.body.angular_velocity - quadruped.rear_lower_link.body.angular_velocity
+            rear_knee_joint.torque = quadruped.rear_knee_joint_pid.control(target_angle[2], angle, omega)
+
+            angle = quadruped.rear_upper_link.body.angle - base_angle
+            omega = quadruped.rear_upper_link.body.angular_velocity - base_omega
+            rear_shoulder_joint.torque = quadruped.rear_shoulder_joint_pid.control(target_angle[3], angle, omega)
+        quadruped.rear_foot_contact = contact_schedule[1]
+
         joints = [front_knee_joint, front_shoulder_joint, rear_knee_joint, rear_shoulder_joint]
-
-
-        front_knee_joint.torque = -np.cross(front_foot.pos - front_knee_joint.pos, front_foot.Fground)
-        front_shoulder_joint.torque = -np.cross(front_foot.pos - front_shoulder_joint.pos, front_foot.Fground)
-        rear_knee_joint.torque = -np.cross(rear_foot.pos - rear_knee_joint.pos, rear_foot.Fground)
-        rear_shoulder_joint.torque = -np.cross(rear_foot.pos - rear_shoulder_joint.pos, rear_foot.Fground)
-
-        joint_torques =  [joint.torque[2] for joint in joints]
-        #print("joint torque")
-        #print([joint_torques[0][2], joint_torques[1][2], joint_torques[2][2], joint_torques[3][2]])
+        joint_torques =  [joint.torque for joint in joints]
         return joint_torques
-
 

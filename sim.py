@@ -63,7 +63,8 @@ class Sim(PrintObject):
 
         # DEBUG
         #self.ball = self.addBall()
-        self.quadruped = Quadruped(self.event, (100,170))
+        #self.quadruped = Quadruped(self.event, (100,170))
+        self.quadruped = Quadruped(self.event, (100,270))
 
     def exit(self):
         self.print_info()
