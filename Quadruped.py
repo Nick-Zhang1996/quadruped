@@ -40,10 +40,13 @@ class Quadruped(PrintObject):
         self.front_foot_contact = False
         self.rear_foot_contact = False
         dt = event.step_planner.dt
-        self.front_shoulder_joint_pid = PidController(5e4,1e4,1e4,dt,10000,1000)
-        self.front_knee_joint_pid = PidController(5e4,1e4,1e4,dt,10000,1000)
-        self.rear_shoulder_joint_pid = PidController(5e4,1e4,1e4,dt,10000,1000)
-        self.rear_knee_joint_pid = PidController(5e4,1e4,1e4,dt,10000,1000)
+        P = 5e3*0
+        I = 1e3*0
+        D = 1e3*0
+        self.front_shoulder_joint_pid = PidController(P,I,D,dt,10000,1000)
+        self.front_knee_joint_pid = PidController(P,I,D,dt,10000,1000)
+        self.rear_shoulder_joint_pid = PidController(P,I,D,dt,10000,1000)
+        self.rear_knee_joint_pid = PidController(P,I,D,dt,10000,1000)
 
     def exit(self):
         self.step_planner.exit()
@@ -78,8 +81,8 @@ class Quadruped(PrintObject):
         base_link_length = 100
         base_link_thickness = 10
         base_I = pymunk.moment_for_box(base_mass, (base_link_thickness, base_length))
-        #base_body = pymunk.Body(base_mass, base_I)
-        base_body = pymunk.Body(base_mass, base_I, body_type=pymunk.Body.STATIC)
+        base_body = pymunk.Body(base_mass, base_I)
+        #base_body = pymunk.Body(base_mass, base_I, body_type=pymunk.Body.STATIC)
         base_body.position = self.base_position
         base_body.angle = radians(0)
         shape = pymunk.Segment(base_body, (-base_link_length/2,0), (base_link_length/2,0), base_link_thickness/2)
@@ -133,6 +136,15 @@ class Quadruped(PrintObject):
     def rear_foot_pos(self):
         return self.rear_lower_link.get_end_position()
 
+    def getFrontKneeAngle(self):
+        return self.front_lower_link.body.angle - self.front_upper_link.body.angle
+    def getFrontShoulderAngle(self):
+        return self.front_upper_link.body.angle - self.base_link.body.angle
+    def getRearKneeAngle(self):
+        return self.rear_lower_link.body.angle - self.rear_upper_link.body.angle
+    def getRearShoulderAngle(self):
+        return self.rear_upper_link.body.angle - self.base_link.body.angle
+
 
     # cheating function, apply ground reaction force to base_link directly
     def applyGroundReactionCheat(self, u):
@@ -173,7 +185,6 @@ class Quadruped(PrintObject):
             self.joint_torque = self.step_planner.getJointTorque()
             self.ground_reaction_force = self.step_planner.getGroundReactionForce()
 
-            #self.joint_torque = self.controller.calcJointTorque(ground_reaction_force)
             self.last_controller_update = self.sim.sim_steps * self.sim.sim_dt
             self.sim.controller_steps += 1
         self.applyJointTorque(self.joint_torque)

@@ -9,7 +9,7 @@ from timeUtil import *
 import random
 random.seed(1)
 from math import radians,degrees,cos,sin
-from time import time
+from time import time,sleep
 
 # NOTE: to make display with pygame simpler unit here used is scaled
 # distance: cm, g: cm/s^2, force: N/100
@@ -63,8 +63,8 @@ class Sim(PrintObject):
 
         # DEBUG
         #self.ball = self.addBall()
-        #self.quadruped = Quadruped(self.event, (100,170))
-        self.quadruped = Quadruped(self.event, (100,270))
+        self.quadruped = Quadruped(self.event, (100,170))
+        #self.quadruped = Quadruped(self.event, (100,270))
 
     def exit(self):
         self.print_info()
@@ -91,7 +91,8 @@ class Sim(PrintObject):
         elif (self.quadruped.rear_lower_link.shape in arbiter.shapes or self.quadruped.rear_lower_link.circle in arbiter.shapes):
             self.quadruped.rear_ground_reaction = np.array(arbiter.total_impulse) / self.sim_dt
         else:
-            self.print_warning("unexpected contact")
+            pass
+            #self.print_warning("unexpected contact")
 
     def addBall(self):
         """Add a ball to the given space at a random position"""
@@ -168,7 +169,11 @@ class Sim(PrintObject):
 
     def loop(self):
         while (not self.checkPygameEvent()):
+            t0 = time()
             self.step()
+            sim_lead = (self.sim_dt) - (time()-t0)
+            if(sim_lead > 0):
+                sleep(sim_lead)
         self.exit()
 
     def step(self):

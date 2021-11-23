@@ -9,7 +9,7 @@ class StepPlanner(PrintObject):
         self.quadruped = event.quadruped
         self.event = event
         self.horizon = 10
-        self.dt = 0.05
+        self.dt = 0.02
         self.current_plan = None
         self.next_plan_name = None
         self.current_plan_t0 = 0
@@ -25,6 +25,7 @@ class StepPlanner(PrintObject):
         # jump = squat + jump + in_air + landing
         self.newPlan('jumpSeq',self.getPlanSquat)
         self.newPlan('jump',self.getPlanJump)
+        self.newPlan('in_air',self.getPlanInAir)
     def exit(self):
         self.controller.exit()
 
@@ -52,12 +53,13 @@ class StepPlanner(PrintObject):
     # time_left: float
     def step(self):
         self.processJoystick()
-        contact_schedule, target_state, time_left = self.getPlan()
+        contact_schedule, target_state, target_angle, time_left = self.getPlan()
         # joint order  [front_knee_joint, front_shoulder_joint, rear_knee_joint, rear_shoulder_joint]
         # 0 means all legs pointing downward
-        target_angle = [radians(30),-radians(120),0,-radians(120)]
+        #target_angle = [radians(30),-radians(120),0,-radians(120)]
         self.controller.step(contact_schedule, target_state, target_angle)
         self.joint_torque = self.controller.getJointTorque()
+        self.ground_reaction_force = self.controller.getGroundReactionForce()
 
         if (not time_left):
             self.updatePlan()
@@ -86,6 +88,7 @@ class StepPlanner(PrintObject):
     # getPlan for squatting down
     # TODO
     def getPlanSquat(self, first_call):
+        target_angle = np.zeros(4)
         elapsed_time = self.getTime() - self.current_plan_t0
         if (first_call):
             self.jump_target_x = self.quadruped.base_link.body.position[0] + 5
@@ -112,7 +115,7 @@ class StepPlanner(PrintObject):
 
         state_error = self.quadruped.getState()-target_state[0]
         state_error_norm = np.linalg.norm(state_error)
-        self.print_info("t: %.2f, state_error: %.3f, dy %.2f, dvy %.2f "%(elapsed_time, state_error_norm, state_error[2], state_error[5]))
+        #self.print_info("t: %.2f, state_error: %.3f, dy %.2f, dvy %.2f "%(elapsed_time, state_error_norm, state_error[2], state_error[5]))
         '''
         if (self.event.joystick.button['S']):
             plt.plot(self.quadruped.getState()[2],'o')
@@ -124,20 +127,41 @@ class StepPlanner(PrintObject):
         if (state_error_norm < 0.5):
             self.print_info("squat finished")
             self.next_plan_name = 'jump'
-            return contact_schedule, target_state,0
+            return contact_schedule, target_state,target_angle, 0
         else:
-            return contact_schedule, target_state,1
+            return contact_schedule, target_state,target_angle,1
 
     # getPlan for jump
-    # TODO
+    # TODO handle single foot contact with WBC
     def getPlanJump(self, first_call):
-        contact_schedule = [[True,True] for i in range(self.horizon)]
-        ref_state = np.array([0, self.stand_target_x, self.stand_target_y+100, 0, 0, 10])
+        target_angle = np.zeros(4)
+        h = 0.5*100
+        g = self.event.sim.g
+        v_takeoff_y = (2*h*g)**0.5
+        elapsed_time = self.getTime() - self.current_plan_t0
+        self.controller.velocityGain()
+        ref_state = np.array([0, 0, 0, 0, 300, 500])
         target_state = ref_state.reshape((1,6)).repeat(self.horizon,axis=0)
-        return contact_schedule, target_state,1
+        contact_schedule = [[True,True] for i in range(self.horizon)]
+        if (np.abs(self.quadruped.getFrontKneeAngle()) < radians(20) or np.abs(self.quadruped.getRearKneeAngle()) < radians(20)):
+            self.print_info("jump finished")
+            self.next_plan_name = 'in_air'
+            return contact_schedule, target_state,target_angle,0
+        else:
+            return contact_schedule, target_state,target_angle,1
+
+    def getPlanInAir(self, first_call):
+        if (first_call):
+            self.in_air_target_angle = np.array([radians(90), radians(150),radians(90), radians(150)])
+        target_angle = self.in_air_target_angle
+        contact_schedule = [[False,False] for i in range(self.horizon)]
+        target_state = None
+
+        return contact_schedule, target_state, target_angle,1
 
     # getPlan for standing
     def getPlanStand(self, first_call):
+        target_angle = np.zeros(4)
         elapsed_time = self.getTime() - self.current_plan_t0
         if (first_call):
             self.stand_target_x = self.quadruped.base_link.body.position[0]
@@ -161,7 +185,7 @@ class StepPlanner(PrintObject):
                 target_state.append(ref_state)
             target_state = np.array(target_state)
 
-        return contact_schedule, target_state,1
+        return contact_schedule, target_state,target_angle,1
 
     
         

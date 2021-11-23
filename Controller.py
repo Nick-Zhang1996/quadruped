@@ -18,8 +18,8 @@ class Controller(PrintObject):
         self.g = 9.8*100
         # discretization step for MPC 0.05
         self.dt = dt
-        # horizon, 10
         self.N = horizon
+
         self.t = execution_timer(True)
         np.set_printoptions(precision=4)
         self.gurobi_constraints = []
@@ -87,7 +87,8 @@ class Controller(PrintObject):
         # [u0, .... u(N-1)]
         # simple constraint
         # TODO incorporate fy>Fmin here
-        u = model.addMVar(shape=m*N, lb=-20e3, ub=20e3, name='u')
+        max_force = 50e3
+        u = model.addMVar(shape=m*N, lb=-max_force, ub=max_force, name='u')
 
         # constraint on ground reaction (friction limit)
         mu = self.sim.ground_friction*0.4
@@ -115,16 +116,62 @@ class Controller(PrintObject):
         self.A = A
         return
 
+    def normalGain(self):
+        n = 6
+        # control dimension, legs*dim
+        m = 4
+        N = self.N # horizon
+        Q = np.eye(n)
+        # x = [pitch, x, y, omega, vx, vy ]
+        Q[0,0] *= 57*10
+        Q[1,1] *= 1
+        Q[2,2] *= 1
+        Q[3,3] *= 57*0.01
+        Q[4,4] *= 0.01
+        Q[5,5] *= 0.01
+        R = np.eye(m)*1e-8
+        #R = np.zeros((m,m))
+
+        bigQ = np.kron(np.eye(N),Q)
+        bigR = np.kron(np.eye(N),R)
+        self.Q = Q
+        self.bigQ = bigQ
+        self.R = R
+        self.bigR = bigR
+        self.dt = 0.02
+
+    def velocityGain(self):
+        n = 6
+        # control dimension, legs*dim
+        m = 4
+        N = self.N # horizon
+        Q = np.eye(n)
+        # x = [pitch, x, y, omega, vx, vy ]
+        Q[0,0] *= 57*10
+        Q[1,1] *= 0
+        Q[2,2] *= 0
+        Q[3,3] *= 57*0.01
+        Q[4,4] *= 0.4
+        Q[5,5] *= 0.8
+        R = np.eye(m)*1e-8
+
+        cost_over_horizon = np.diag(np.linspace(1,0.1,N))
+
+        bigQ = np.kron(cost_over_horizon,Q)
+        bigR = np.kron(cost_over_horizon,R)
+        self.Q = Q
+        self.bigQ = bigQ
+        self.R = R
+        self.bigR = bigR
+        self.dt = 0.005
+
     # step controller, select contact leg or swing leg
     # contact schedule: N*2 (bool)
     # target_state: N*n (float)
     # target_angle: 4, only valid if a leg is scheduled to be swinging
     def step(self,contact_schedule, target_state, target_angle):
-        # FIXME
-        #self.ground_reaction_force = self.contactLegControl(contact_schedule, target_state)
-        contact_schedule = [[False, False, False, False]]
-        Fground = [0,0,0,0]
-        self.joint_torque = self.calcJointTorque(Fground, contact_schedule[0], target_angle)
+        self.ground_reaction_force = self.contactLegControl(contact_schedule, target_state)
+        self.joint_torque = self.calcJointTorque(self.ground_reaction_force, contact_schedule[0], target_angle)
 
 
     def getJointTorque(self):
@@ -132,7 +179,10 @@ class Controller(PrintObject):
     def getGroundReactionForce(self):
         return self.ground_reaction_force
 
+    # TODO handle single leg contact
     def contactLegControl(self, contact_schedule, target_state):
+        if (not any(contact_schedule[0])):
+            return np.array([0,0,0,0])
         # broadcast x_ref to fill horizon
         # x1,x2,x3.. x1,x2,x3
         xr = target_state.flatten()
@@ -241,6 +291,7 @@ class Controller(PrintObject):
 
         # draw anticipated trajectory
         x_ref_world = xr.reshape((N,n))
+
         '''
         if (self.sim.joystick.button['S']):
             Q = self.Q
@@ -260,6 +311,20 @@ class Controller(PrintObject):
             self.print_info("current angle: %.2f expected EOH angle: %.2f"%(degrees(x0[0]), degrees(x_predict[-1,0])))
             breakpoint()
         '''
+
+        x_expected = x.x.reshape((N,n))
+
+        '''
+        dv0 = (x_ref_world[0] - x0)[4:]
+        dvf = (x_ref_world[0] - x_expected[-1])[4:]
+        ratio = np.linalg.norm(dvf) / np.linalg.norm(dv0)
+        self.print_info("dv0 =", dv0, "dvf =", dvf, "ratio = %.2f"%ratio, u.x[:4])
+        '''
+        if (self.sim.joystick.button['S']):
+            ctrl = u.x.reshape((N,m))
+            print(ctrl)
+            print(x_expected)
+            breakpoint()
 
         return u.x[:4]
 
