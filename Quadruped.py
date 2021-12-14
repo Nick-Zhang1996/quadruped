@@ -48,8 +48,15 @@ class Quadruped(PrintObject):
         self.rear_shoulder_joint_pid = PidController(P,I,D,dt,10000,1000)
         self.rear_knee_joint_pid = PidController(P,I,D,dt,10000,1000)
 
+        self.front_ground_reaction = np.zeros(2)
+        self.rear_ground_reaction = np.zeros(2)
+
     def exit(self):
         self.step_planner.exit()
+
+    def preStep(self):
+        self.front_ground_reaction = np.zeros(2)
+        self.rear_ground_reaction = np.zeros(2)
 
     def addLinks(self):
         total_mass = self.mass

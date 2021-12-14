@@ -140,11 +140,16 @@ class StepPlanner(PrintObject):
         v_takeoff_y = (2*h*g)**0.5
         elapsed_time = self.getTime() - self.current_plan_t0
         self.controller.velocityGain()
-        ref_state = np.array([0, 0, 0, 0, 300, 500])
+        #ref_state = np.array([0, 0, 0, 0, 200, 300])
+        ref_state = np.array([0, 0, 0, 0, 250, 350])
         target_state = ref_state.reshape((1,6)).repeat(self.horizon,axis=0)
         contact_schedule = [[True,True] for i in range(self.horizon)]
-        if (np.abs(self.quadruped.getFrontKneeAngle()) < radians(20) or np.abs(self.quadruped.getRearKneeAngle()) < radians(20)):
+        #if (np.abs(self.quadruped.getFrontKneeAngle()) < radians(20) or np.abs(self.quadruped.getRearKneeAngle()) < radians(20)):
+        if (np.linalg.norm(self.quadruped.front_ground_reaction) < 1000 or np.linalg.norm(self.quadruped.rear_ground_reaction) < 1000):
             self.print_info("jump finished")
+            self.print_info("target velocity: x: %.1f y: %.1f"%(ref_state[4], ref_state[5]))
+            v = self.quadruped.base_link.body.velocity
+            self.print_info("achieved velocity: x: %.1f y: %.1f"%(v[0],v[1]))
             self.next_plan_name = 'in_air'
             return contact_schedule, target_state,target_angle,0
         else:

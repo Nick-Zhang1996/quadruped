@@ -87,11 +87,11 @@ class Controller(PrintObject):
         # [u0, .... u(N-1)]
         # simple constraint
         # TODO incorporate fy>Fmin here
-        max_force = 50e3
+        max_force = 80e3
         u = model.addMVar(shape=m*N, lb=-max_force, ub=max_force, name='u')
 
         # constraint on ground reaction (friction limit)
-        mu = self.sim.ground_friction*0.4
+        mu = self.sim.ground_friction*0.9
         for i in range(N):
             # |fx| < mu*fy
             model.addConstr( u[m*i + 0] <= mu * u[m*i + 1])
@@ -147,10 +147,12 @@ class Controller(PrintObject):
         N = self.N # horizon
         Q = np.eye(n)
         # x = [pitch, x, y, omega, vx, vy ]
-        Q[0,0] *= 57*10
+        #Q[0,0] *= 57*10
+        Q[0,0] *= 57*200
         Q[1,1] *= 0
         Q[2,2] *= 0
-        Q[3,3] *= 57*0.01
+        #Q[3,3] *= 57*0.01
+        Q[3,3] *= 57
         Q[4,4] *= 0.4
         Q[5,5] *= 0.8
         R = np.eye(m)*1e-8
@@ -292,7 +294,6 @@ class Controller(PrintObject):
         # draw anticipated trajectory
         x_ref_world = xr.reshape((N,n))
 
-        '''
         if (self.sim.joystick.button['S']):
             Q = self.Q
             R = self.R
@@ -310,21 +311,20 @@ class Controller(PrintObject):
             #self.print_info("expected J = %.2f"%(J))
             self.print_info("current angle: %.2f expected EOH angle: %.2f"%(degrees(x0[0]), degrees(x_predict[-1,0])))
             breakpoint()
-        '''
 
         x_expected = x.x.reshape((N,n))
 
-        '''
         dv0 = (x_ref_world[0] - x0)[4:]
         dvf = (x_ref_world[0] - x_expected[-1])[4:]
         ratio = np.linalg.norm(dvf) / np.linalg.norm(dv0)
-        self.print_info("dv0 =", dv0, "dvf =", dvf, "ratio = %.2f"%ratio, u.x[:4])
+        self.print_info("dv0 =", dv0, "dvf =", dvf, "ratio = %.2f"%ratio, u.x[:4], "%.2f"%body.angular_velocity)
         '''
         if (self.sim.joystick.button['S']):
             ctrl = u.x.reshape((N,m))
             print(ctrl)
             print(x_expected)
             breakpoint()
+        '''
 
         return u.x[:4]
 

@@ -188,6 +188,7 @@ class Sim(PrintObject):
 
         # update simulation
         t.s('sim step')
+        self.quadruped.preStep()
         self.space.step(self.sim_dt)
         t.e('sim step')
         self.sim_steps += 1
