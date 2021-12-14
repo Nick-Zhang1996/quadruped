@@ -141,7 +141,7 @@ class StepPlanner(PrintObject):
         elapsed_time = self.getTime() - self.current_plan_t0
         self.controller.velocityGain()
         #ref_state = np.array([0, 0, 0, 0, 200, 300])
-        ref_state = np.array([0, 0, 0, 0, 250, 350])
+        ref_state = np.array([0, 0, 0, 0, 300, 350])
         target_state = ref_state.reshape((1,6)).repeat(self.horizon,axis=0)
         contact_schedule = [[True,True] for i in range(self.horizon)]
         #if (np.abs(self.quadruped.getFrontKneeAngle()) < radians(20) or np.abs(self.quadruped.getRearKneeAngle()) < radians(20)):

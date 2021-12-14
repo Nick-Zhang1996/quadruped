@@ -148,7 +148,7 @@ class Controller(PrintObject):
         Q = np.eye(n)
         # x = [pitch, x, y, omega, vx, vy ]
         #Q[0,0] *= 57*10
-        Q[0,0] *= 57*200
+        Q[0,0] *= 57*100
         Q[1,1] *= 0
         Q[2,2] *= 0
         #Q[3,3] *= 57*0.01
