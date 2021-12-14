@@ -44,8 +44,12 @@ class Quadruped(PrintObject):
         I = 1e3
         D = 0.5e4
         self.front_shoulder_joint_pid = PidController(P,I,D,dt,10000,1000)
-        self.front_knee_joint_pid = PidController(P,I,D,dt,10000,1000)
         self.rear_shoulder_joint_pid = PidController(P,I,D,dt,10000,1000)
+
+        P = 5e4
+        I = 1e3*0
+        D = 5e3
+        self.front_knee_joint_pid = PidController(P,I,D,dt,10000,1000)
         self.rear_knee_joint_pid = PidController(P,I,D,dt,10000,1000)
 
         self.front_ground_reaction = np.zeros(2)

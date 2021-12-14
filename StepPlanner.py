@@ -93,7 +93,8 @@ class StepPlanner(PrintObject):
         if (first_call):
             self.jump_target_x = self.quadruped.base_link.body.position[0] + 5
             self.jump_original_y = self.quadruped.base_link.body.position[1]
-            self.jump_transition_duration = 1
+            #self.jump_transition_duration = 1
+            self.jump_transition_duration = 0.1
             self.jump_target_y = 160 - 30
             self.jump_y_vel = (self.jump_target_y - self.jump_original_y)/self.jump_transition_duration
         contact_schedule = [[True,True] for i in range(self.horizon)]

@@ -111,14 +111,6 @@ class Controller(PrintObject):
         Q[4,4] *= 0.01
         Q[5,5] *= 0.01
 
-        '''
-        Q[0,0] *= 1
-        Q[1,1] *= 10
-        Q[2,2] *= 10
-        Q[3,3] *= 1
-        Q[4,4] *= 0.0001
-        Q[5,5] *= 0.0001
-        '''
         R = np.eye(m)*1e-8
         #R = np.zeros((m,m))
 
@@ -315,7 +307,6 @@ class Controller(PrintObject):
             print(x_expected)
             breakpoint()
         '''
-
         self.print_info(u.x[:4])
         return u.x[:4]
 
