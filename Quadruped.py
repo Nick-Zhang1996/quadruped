@@ -40,9 +40,9 @@ class Quadruped(PrintObject):
         self.front_foot_contact = False
         self.rear_foot_contact = False
         dt = event.step_planner.dt
-        P = 5e3*0
-        I = 1e3*0
-        D = 1e3*0
+        P = 5e4
+        I = 1e3
+        D = 0.5e4
         self.front_shoulder_joint_pid = PidController(P,I,D,dt,10000,1000)
         self.front_knee_joint_pid = PidController(P,I,D,dt,10000,1000)
         self.rear_shoulder_joint_pid = PidController(P,I,D,dt,10000,1000)

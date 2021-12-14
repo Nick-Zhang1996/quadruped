@@ -157,21 +157,39 @@ class StepPlanner(PrintObject):
 
     def getPlanInAir(self, first_call):
         if (first_call):
-            self.in_air_target_angle = np.array([radians(90), radians(150),radians(90), radians(150)])
+            #self.in_air_target_angle = np.array([radians(70), radians(-120),radians(70), radians(-120)])
+            self.in_air_target_angle = np.array([radians(110), radians(-140),radians(110), radians(-140)])
+            self.in_air_contact_count = 0
         target_angle = self.in_air_target_angle
         contact_schedule = [[False,False] for i in range(self.horizon)]
         target_state = None
 
-        return contact_schedule, target_state, target_angle,1
+        # if foot contact, switch to landing controller
+        if (np.linalg.norm(self.quadruped.front_ground_reaction) > 100 and np.linalg.norm(self.quadruped.rear_ground_reaction) > 100):
+            self.in_air_contact_count += 1
+
+        if (self.in_air_contact_count > 3):
+            self.print_info("contact detected, switching to standing")
+            self.next_plan_name = 'stand'
+            self.controller.normalGain()
+            return contact_schedule, target_state, target_angle,0
+        else:
+            return contact_schedule, target_state, target_angle,1
 
     # getPlan for standing
     def getPlanStand(self, first_call):
         target_angle = np.zeros(4)
         elapsed_time = self.getTime() - self.current_plan_t0
         if (first_call):
-            self.stand_target_x = self.quadruped.base_link.body.position[0]
+            #self.stand_target_x = self.quadruped.base_link.body.position[0]
+            # set target CG location to be center of foot contact
+            xf = self.quadruped.front_foot_pos()[0]
+            xr = self.quadruped.rear_foot_pos()[0]
+            self.stand_target_x = 0.5*(xf+xr)
+
             self.stand_original_y = self.quadruped.base_link.body.position[1]
-            self.stand_transition_duration = 1
+            #self.stand_transition_duration = 1
+            self.stand_transition_duration = 0.1
             self.stand_target_y = 160
             self.stand_y_vel = (self.stand_target_y - self.stand_original_y)/self.stand_transition_duration
         contact_schedule = [[True,True] for i in range(self.horizon)]

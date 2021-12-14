@@ -62,22 +62,6 @@ class Controller(PrintObject):
 
         G = np.eye(n) + A*self.dt
 
-        # formulate optimization problem
-        # J = sum( (x_ref - x).T Q (x_ref-x) + u.T R u )
-        Q = np.eye(n)
-        # x = [pitch, x, y, omega, vx, vy ]
-        Q[0,0] *= 57*10
-        Q[1,1] *= 1
-        Q[2,2] *= 1
-        Q[3,3] *= 57*0.01
-        Q[4,4] *= 0.01
-        Q[5,5] *= 0.01
-        R = np.eye(m)*1e-8
-        #R = np.zeros((m,m))
-
-        bigQ = np.kron(np.eye(N),Q)
-        bigR = np.kron(np.eye(N),R)
-
         model = gp.Model("stand")
 
         # supress output
@@ -107,13 +91,10 @@ class Controller(PrintObject):
         self.model = model
         self.gurobi_x = x
         self.gurobi_u = u
-        self.Q = Q
-        self.bigQ = bigQ
-        self.R = R
-        self.bigR = bigR
         self.d = d
         self.G = G
         self.A = A
+        self.normalGain()
         return
 
     def normalGain(self):
@@ -129,6 +110,15 @@ class Controller(PrintObject):
         Q[3,3] *= 57*0.01
         Q[4,4] *= 0.01
         Q[5,5] *= 0.01
+
+        '''
+        Q[0,0] *= 1
+        Q[1,1] *= 10
+        Q[2,2] *= 10
+        Q[3,3] *= 1
+        Q[4,4] *= 0.0001
+        Q[5,5] *= 0.0001
+        '''
         R = np.eye(m)*1e-8
         #R = np.zeros((m,m))
 
@@ -314,11 +304,11 @@ class Controller(PrintObject):
 
         x_expected = x.x.reshape((N,n))
 
+        '''
         dv0 = (x_ref_world[0] - x0)[4:]
         dvf = (x_ref_world[0] - x_expected[-1])[4:]
         ratio = np.linalg.norm(dvf) / np.linalg.norm(dv0)
         self.print_info("dv0 =", dv0, "dvf =", dvf, "ratio = %.2f"%ratio, u.x[:4], "%.2f"%body.angular_velocity)
-        '''
         if (self.sim.joystick.button['S']):
             ctrl = u.x.reshape((N,m))
             print(ctrl)
@@ -326,6 +316,7 @@ class Controller(PrintObject):
             breakpoint()
         '''
 
+        self.print_info(u.x[:4])
         return u.x[:4]
 
     # given desired ground reaction force at foot (Fx,Fy)
@@ -356,11 +347,13 @@ class Controller(PrintObject):
                 quadruped.front_knee_joint_pid.reset()
                 quadruped.front_shoulder_joint_pid.reset()
             # swing leg control
-            angle = quadruped.front_lower_link.body.angle - quadruped.front_upper_link.body.angle
+            angle = quadruped.front_lower_link.body.angle - quadruped.front_upper_link.body.angle - target_angle[0]
+            angle = self.wrap(angle) + target_angle[0]
             omega = quadruped.front_lower_link.body.angular_velocity - quadruped.front_lower_link.body.angular_velocity
             front_knee_joint.torque = quadruped.front_knee_joint_pid.control(target_angle[0], angle, omega)
 
-            angle = quadruped.front_upper_link.body.angle - base_angle
+            angle = quadruped.front_upper_link.body.angle - base_angle - target_angle[1]
+            angle = self.wrap(angle) + target_angle[1]
             omega = quadruped.front_upper_link.body.angular_velocity - base_omega
             front_shoulder_joint.torque = quadruped.front_shoulder_joint_pid.control(target_angle[1], angle, omega)
         quadruped.front_foot_contact = contact_schedule[0]
@@ -373,16 +366,25 @@ class Controller(PrintObject):
                 quadruped.rear_knee_joint_pid.reset()
                 quadruped.rear_shoulder_joint_pid.reset()
             # swing leg control
-            angle = quadruped.rear_lower_link.body.angle - quadruped.rear_upper_link.body.angle
+            angle = quadruped.rear_lower_link.body.angle - quadruped.rear_upper_link.body.angle - target_angle[2]
+            angle = self.wrap(angle) + target_angle[2]
             omega = quadruped.rear_lower_link.body.angular_velocity - quadruped.rear_lower_link.body.angular_velocity
             rear_knee_joint.torque = quadruped.rear_knee_joint_pid.control(target_angle[2], angle, omega)
 
-            angle = quadruped.rear_upper_link.body.angle - base_angle
+            angle = quadruped.rear_upper_link.body.angle - base_angle - target_angle[3]
+            angle = self.wrap(angle) + target_angle[3]
             omega = quadruped.rear_upper_link.body.angular_velocity - base_omega
             rear_shoulder_joint.torque = quadruped.rear_shoulder_joint_pid.control(target_angle[3], angle, omega)
         quadruped.rear_foot_contact = contact_schedule[1]
 
         joints = [front_knee_joint, front_shoulder_joint, rear_knee_joint, rear_shoulder_joint]
         joint_torques =  [joint.torque for joint in joints]
+        '''
+        if (self.sim.joystick.button['S']):
+            breakpoint()
+        '''
         return joint_torques
+
+    def wrap(self, angle):
+        return (angle + 3*np.pi) % (2*np.pi) - np.pi
 
